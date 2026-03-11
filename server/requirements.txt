@@ -1,0 +1,9 @@
+django>=5.0
+djangorestframework
+django-cors-headers
+google-genai
+razorpay
+gunicorn
+whitenoise
+dj-database-url
+psycopg2-binary
