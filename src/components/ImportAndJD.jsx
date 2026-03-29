@@ -3,7 +3,7 @@ import { extractKeywords, matchKeywords, parseResumeText } from '../utils.js';
 import { useAuth } from '../AuthContext.jsx';
 
 // ── Resume Import Panel ──────────────────────────────────────────
-export function ImportPanel({ onImport, onToast }) {
+export function ImportPanel({ onImport, onImportFile, onToast }) {
   const [status, setStatus] = useState(null); // null | 'loading' | 'success' | 'error'
   const [message, setMessage] = useState('');
   const [drag, setDrag] = useState(false);
@@ -13,18 +13,10 @@ export function ImportPanel({ onImport, onToast }) {
     if (!file) return;
     const name = file.name.toLowerCase();
     setStatus('loading');
-    setMessage('Parsing your resume...');
+    setMessage('Loading preview...');
 
     try {
-      if (name.endsWith('.txt')) {
-        const text = await file.text();
-        const parsed = parseResumeText(text);
-        onImport(parsed);
-        setStatus('success');
-        setMessage(`Imported from "${file.name}" — review and refine the sections below.`);
-        onToast('Resume data imported! Please review each section.', 'success');
-      } else if (name.endsWith('.pdf')) {
-        // Load PDF.js and set the worker from the local installed package (avoids CDN fetch failures in dev)
+      if (name.endsWith('.pdf')) {
         const [pdfjsLib, { default: workerUrl }] = await Promise.all([
           import('pdfjs-dist'),
           import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
@@ -36,30 +28,54 @@ export function ImportPanel({ onImport, onToast }) {
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
-          fullText += content.items.map(item => item.str).join(' ') + '\n';
+          // Use Y-coordinates to detect line breaks
+          let lastY = null;
+          let line = '';
+          for (const item of content.items) {
+            const y = item.transform ? item.transform[5] : null;
+            if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) {
+              fullText += line.trim() + '\n';
+              line = '';
+            }
+            line += item.str + ' ';
+            lastY = y;
+          }
+          if (line.trim()) fullText += line.trim() + '\n';
+          fullText += '\n'; // page break
         }
-        const parsed = parseResumeText(fullText);
-        onImport(parsed);
+        const url = URL.createObjectURL(file);
+        if (onImportFile) onImportFile({ type: 'pdf', url, text: fullText });
         setStatus('success');
-        setMessage(`Extracted text from PDF "${file.name}" — review and refine each section.`);
-        onToast('PDF imported! Some fields may need manual review.', 'success');
+        setMessage('Preview loaded directly in the right panel.');
+        onToast('Resume preview loaded!', 'success');
       } else if (name.endsWith('.docx')) {
         const mammoth = await import('mammoth');
         const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        const parsed = parseResumeText(result.value);
-        onImport(parsed);
+        // Clone for dual conversion
+        const bufferCopy = arrayBuffer.slice(0);
+        const [htmlResult, textResult] = await Promise.all([
+           mammoth.convertToHtml({ arrayBuffer }),
+           mammoth.extractRawText({ arrayBuffer: bufferCopy })
+        ]);
+        if (onImportFile) onImportFile({ type: 'html', content: htmlResult.value, text: textResult.value });
         setStatus('success');
-        setMessage(`Extracted from Word doc "${file.name}" — review and refine each section.`);
-        onToast('Word document imported!', 'success');
+        setMessage('Preview loaded directly in the right panel.');
+        onToast('Resume preview loaded!', 'success');
+      } else if (name.endsWith('.txt')) {
+        const text = await file.text();
+        if (onImportFile) onImportFile({ type: 'html', content: `<pre style="white-space: pre-wrap; font-family: monospace; font-size: 14px;">${text}</pre>`, text });
+        setStatus('success');
+        setMessage('Preview loaded directly in the right panel.');
+        onToast('Resume preview loaded!', 'success');
       } else {
         setStatus('error');
         setMessage('Unsupported file format. Please use PDF, DOCX, or TXT.');
       }
     } catch (err) {
+      console.error(err);
       setStatus('error');
-      setMessage(`Error parsing file: ${err.message || 'Unknown error'}. Try a .txt version.`);
-      onToast('Import failed. Try a plain text (.txt) export of your resume.', 'error');
+      setMessage(`Error loading file: ${err.message}`);
+      onToast('Failed to load preview.', 'error');
     }
   };
 
@@ -127,10 +143,10 @@ export function ImportPanel({ onImport, onToast }) {
 }
 
 // ── Job Description Analyzer ─────────────────────────────────────
-export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange }) {
+export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, text = null }) {
   const [showAll, setShowAll] = useState(false);
   const keywords = extractKeywords(jobDesc);
-  const matches = matchKeywords(keywords, data);
+  const matches = matchKeywords(keywords, data, text);
   const found = matches.filter(m => m.found);
   const missing = matches.filter(m => !m.found);
   const matchPct = keywords.length > 0 ? Math.round((found.length / keywords.length) * 100) : 0;
@@ -171,6 +187,7 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange }) 
       const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
       const res = await fetch(`${API}/optimize/`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resumeData: data, jobDesc })
       });
@@ -206,7 +223,7 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange }) 
             value={jobDesc}
             onChange={e => {
               setJobDesc(e.target.value);
-              onKeywordsChange(matchKeywords(extractKeywords(e.target.value), data).filter(m => m.found).map(m => m.keyword.toLowerCase()));
+              onKeywordsChange(matchKeywords(extractKeywords(e.target.value), data, text).filter(m => m.found).map(m => m.keyword.toLowerCase()));
             }}
           />
         </div>

@@ -30,92 +30,99 @@ export default function AuthModal({ onClose, onSuccess }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal auth-modal">
-        {/* Header */}
-        <div className="modal-header">
-          <div>
-            <div className="modal-title">
-              {tab === 'login' ? '👋 Welcome Back' : '✨ Create Account'}
-            </div>
-            <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: 2 }}>
-              {tab === 'login' ? 'Sign in to your ResumeForge account' : 'Free account — quick & easy'}
-            </div>
-          </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()} style={{ backdropFilter: 'blur(3px)' }}>
+      <div className="modal auth-modal" style={{ padding: 0, overflow: 'hidden', display: 'flex', maxWidth: 800, minHeight: 480 }}>
+        
+        {/* Brand Side (hidden on mobile) */}
+        <div style={{
+          flex: '0.8', background: 'linear-gradient(135deg, var(--accent), var(--purple))',
+          padding: 40, color: 'white', display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', '@media(max-width: 600px)': { display: 'none' }
+        }} className="auth-brand-side">
+          <div className="brand-icon" style={{ width: 48, height: 48, fontSize: '1.6rem', marginBottom: 20, boxShadow: 'none', background: 'rgba(255,255,255,0.2)' }}>C</div>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, lineHeight: 1.2, marginBottom: 12 }}>Build your future with CraftCV.</h2>
+          <p style={{ fontSize: '.9rem', opacity: 0.9, lineHeight: 1.5 }}>Join thousands of professionals creating ATS-optimized resumes that actually land interviews.</p>
         </div>
 
-        {/* Tabs */}
-        <div className="auth-tabs">
-          <button
-            className={`auth-tab${tab === 'login' ? ' active' : ''}`}
-            onClick={() => { setTab('login'); setError(''); }}
-          >Login</button>
-          <button
-            className={`auth-tab${tab === 'register' ? ' active' : ''}`}
-            onClick={() => { setTab('register'); setError(''); }}
-          >Register</button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 20 }}>
-          {tab === 'register' && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div className="f-group">
-                <label className="f-label">First Name</label>
-                <input className="f-input" placeholder="Alex" value={form.first_name} onChange={set('first_name')} />
+        {/* Form Side */}
+        <div style={{ flex: 1.2, padding: '40px 48px', display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+            <div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--ink)' }}>
+                {tab === 'login' ? 'Welcome Back' : 'Create Account'}
               </div>
-              <div className="f-group">
-                <label className="f-label">Last Name</label>
-                <input className="f-input" placeholder="Smith" value={form.last_name} onChange={set('last_name')} />
+              <div style={{ fontSize: '.85rem', color: 'var(--muted)', marginTop: 4 }}>
+                {tab === 'login' ? 'Sign in to access your resumes.' : 'Start building for free.'}
               </div>
             </div>
-          )}
-
-          <div className="f-group">
-            <label className="f-label">Email Address</label>
-            <input
-              className="f-input"
-              type="email"
-              placeholder="you@example.com"
-              value={form.email}
-              onChange={set('email')}
-              required
-            />
+            <button className="modal-close" onClick={onClose} style={{ background: 'var(--surface2)' }}>✕</button>
           </div>
 
-          <div className="f-group">
-            <label className="f-label">Password {tab === 'register' && <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(min 6 chars)</span>}</label>
-            <input
-              className="f-input"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={set('password')}
-              required
-            />
+          {/* Tabs */}
+          <div className="auth-tabs" style={{ marginBottom: 24 }}>
+            <button
+              className={`auth-tab${tab === 'login' ? ' active' : ''}`}
+              onClick={() => { setTab('login'); setError(''); }}
+            >Sign In</button>
+            <button
+              className={`auth-tab${tab === 'register' ? ' active' : ''}`}
+              onClick={() => { setTab('register'); setError(''); }}
+            >Register</button>
           </div>
 
-          {error && (
-            <div className="auth-error">⚠️ {error}</div>
-          )}
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {tab === 'register' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--ink2)' }}>First Name</label>
+                  <input className="f-input" placeholder="Alex" value={form.first_name} onChange={set('first_name')} style={{ padding: '10px 14px' }} required={tab === 'register'} />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--ink2)' }}>Last Name</label>
+                  <input className="f-input" placeholder="Smith" value={form.last_name} onChange={set('last_name')} style={{ padding: '10px 14px' }} required={tab === 'register'} />
+                </div>
+              </div>
+            )}
 
-          <button className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop: 4 }}>
-            {loading ? '...' : tab === 'login' ? 'Sign In' : 'Create Free Account'}
-          </button>
-        </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--ink2)' }}>Email Address</label>
+              <input
+                className="f-input" type="email" placeholder="you@example.com"
+                value={form.email} onChange={set('email')} required
+                style={{ padding: '10px 14px' }}
+              />
+            </div>
 
-        {/* Switch tab hint */}
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: '.8rem', color: 'var(--muted)' }}>
-          {tab === 'login' ? (
-            <>Don't have an account?{' '}
-              <button className="auth-switch-btn" onClick={() => { setTab('register'); setError(''); }}>Register free</button>
-            </>
-          ) : (
-            <>Already have an account?{' '}
-              <button className="auth-switch-btn" onClick={() => { setTab('login'); setError(''); }}>Sign in</button>
-            </>
-          )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <label style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--ink2)' }}>Password</label>
+                {tab === 'register' && <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}>Min 6 chars</span>}
+              </div>
+              <input
+                className="f-input" type="password" placeholder="••••••••"
+                value={form.password} onChange={set('password')} required
+                style={{ padding: '10px 14px' }}
+              />
+            </div>
+
+            {error && (
+              <div className="auth-error" style={{ padding: '12px 16px', marginTop: 4 }}>⚠️ {error}</div>
+            )}
+
+            <button className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop: 8, padding: '12px', fontSize: '.9rem', justifyContent: 'center' }}>
+              {loading ? 'Processing...' : tab === 'login' ? 'Sign In' : 'Create Account'}
+            </button>
+          </form>
+
+          <div style={{ marginTop: 'auto', paddingTop: 24, textAlign: 'center', fontSize: '.8rem', color: 'var(--muted)' }}>
+            {tab === 'login' ? (
+              <>Don't have an account? <button className="auth-switch-btn" onClick={() => { setTab('register'); setError(''); }}>Register free</button></>
+            ) : (
+              <>Already have an account? <button className="auth-switch-btn" onClick={() => { setTab('login'); setError(''); }}>Sign in</button></>
+            )}
+          </div>
         </div>
       </div>
     </div>

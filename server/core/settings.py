@@ -22,12 +22,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-5wvu)%7(o&s74s3z4diiuj_gpcvmn)n19buu5r_^0%4n8px8il'
+if not os.environ.get('DEBUG', 'True') == 'True':
+    SECRET_KEY = os.environ['SECRET_KEY'] # Hard fail if missing in prod
+else:
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5wvu)%7(o&s74s3z4diiuj_gpcvmn)n19buu5r_^0%4n8px8il')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -47,6 +50,7 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'api.authentication.CookieTokenAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -97,7 +101,14 @@ DATABASES = {
     )
 }
 
-CORS_ALLOW_ALL_ORIGINS = True # For development
+# CORS
+CORS_ALLOW_ALL_ORIGINS = False
+if DEBUG:
+    CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']
+else:
+    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
+
+CORS_ALLOW_CREDENTIALS = True
 
 
 

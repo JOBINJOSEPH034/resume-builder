@@ -1,6 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { initData, SECTIONS, isDone, calcBaseScore, matchKeywords, extractKeywords } from './utils.js';
+import { initData, SECTIONS, isDone, calcBaseScore, matchKeywords, extractKeywords, analyzeResumeText } from './utils.js';
 import { useLocalStorage, useToast, useTheme } from './hooks.js';
 import { ToastContainer } from './components/UI.jsx';
 import ResumePreview from './components/ResumePreview.jsx';
@@ -32,19 +32,33 @@ export default function App() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showAtsModal, setShowAtsModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [importedFile, setImportedFile] = useState(null);
+  const [importedText, setImportedText] = useState('');
+  const [importedHtml, setImportedHtml] = useState('');
+  const [appMode, setAppMode] = useState('BUILDER'); // 'BUILDER' | 'ANALYZER'
+  const editRef = useRef(null);
+  const [analyzerTab, setAnalyzerTab] = useState('import'); // 'import' | 'edit' | 'jd'
+  const [showSplash, setShowSplash] = useState(true);
   const { toasts, show: showToast } = useToast();
   const { theme, toggle: toggleTheme } = useTheme();
-  const { user, offer, logout } = useAuth();
+  const { user, offer, logout, upgradeToPro } = useAuth();
+
+  // Splash screen timer
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // ATS score = base content score + keyword match bonus
-  const baseScore = calcBaseScore(data);
+  const analyzerReport = appMode === 'ANALYZER' ? analyzeResumeText(importedText, jobDesc) : null;
+  const baseScore = appMode === 'ANALYZER' ? (analyzerReport?.totalScore || 0) : calcBaseScore(data, null, jobDesc);
   const keywords = extractKeywords(jobDesc);
-  const kwMatches = matchKeywords(keywords, data);
+  const kwMatches = appMode === 'ANALYZER' ? matchKeywords(keywords, null, importedText) : matchKeywords(keywords, data);
   const kwFound = kwMatches.filter(m => m.found);
   const kwMissing = kwMatches.filter(m => !m.found);
   const kwMatchPct = keywords.length > 0 ? Math.round((kwFound.length / keywords.length) * 100) : 0;
   const atsScore = jobDesc.length > 20
-    ? Math.round(baseScore * 0.7 + kwMatchPct * 0.3)
+    ? Math.round(baseScore * 0.6 + kwMatchPct * 0.4)
     : baseScore;
 
   const scoreClass = atsScore >= 80 ? 'good' : atsScore >= 50 ? 'mid' : 'low';
@@ -54,6 +68,73 @@ export default function App() {
     setData(parsed);
     setActive('personal');
   }, [setData]);
+
+  const handleImportFile = useCallback((fileData) => {
+    setImportedFile(fileData);
+    if (fileData) {
+      setImportedText(fileData.text || '');
+      // Build formatted HTML for the editable preview
+      if (fileData.type === 'html' && fileData.content) {
+        setImportedHtml(fileData.content);
+      } else if (fileData.text) {
+        // For PDFs: convert raw text into formatted HTML preserving structure
+        const lines = fileData.text.split('\n');
+        let htmlParts = [];
+        let isFirstContent = true;
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            htmlParts.push('<div style="height:8px;"></div>');
+            continue;
+          }
+          // First non-empty line = name/title
+          if (isFirstContent) {
+            htmlParts.push(`<div style="font-size:20px;font-weight:800;color:#1a1a2e;margin-bottom:4px;">${trimmed}</div>`);
+            isFirstContent = false;
+            continue;
+          }
+          // Contact info line (contains email/phone/url patterns)
+          if (/[@|]/.test(trimmed) && (trimmed.includes('@') || trimmed.includes('linkedin') || /\d{10}/.test(trimmed))) {
+            htmlParts.push(`<div style="font-size:11px;color:#555;margin-bottom:10px;word-break:break-all;">${trimmed}</div>`);
+            continue;
+          }
+          // Section headers: ALL CAPS with 3+ chars
+          if (/^[A-Z][A-Z\s&\/,.:()_-]{2,}$/.test(trimmed) && trimmed.length < 60) {
+            htmlParts.push(`<h3 style="margin:14px 0 5px;font-size:13px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #4361ee;padding-bottom:3px;color:#1a1a2e;letter-spacing:0.5px;">${trimmed}</h3>`);
+            continue;
+          }
+          // Bullet points
+          if (/^[•●▪\-\*]/.test(trimmed)) {
+            htmlParts.push(`<div style="margin-left:16px;font-size:11.5px;line-height:1.7;color:#333;padding:1px 0;">• ${trimmed.replace(/^[•●▪\-\*]\s*/, '')}</div>`);
+            continue;
+          }
+          // Regular paragraph
+          htmlParts.push(`<div style="font-size:11.5px;line-height:1.7;color:#333;margin:1px 0;">${trimmed}</div>`);
+        }
+        setImportedHtml(htmlParts.join(''));
+      }
+      setAppMode('ANALYZER');
+      setAnalyzerTab('edit');
+    }
+  }, []);
+  const isUserEditing = useRef(false);
+
+  const handleEditInput = useCallback(() => {
+    if (editRef.current) {
+      isUserEditing.current = true;
+      setImportedText(editRef.current.innerText);
+      setImportedHtml(editRef.current.innerHTML);
+      // Reset flag after React renders
+      setTimeout(() => { isUserEditing.current = false; }, 0);
+    }
+  }, []);
+
+  // Populate the contentEditable div when switching to the edit tab (not during user edits)
+  useEffect(() => {
+    if (editRef.current && importedHtml && analyzerTab === 'edit' && !isUserEditing.current) {
+      editRef.current.innerHTML = importedHtml;
+    }
+  }, [analyzerTab]);
 
   const handleKeywordsChange = useCallback((kws) => {
     setMatchedKeywords(kws);
@@ -76,7 +157,7 @@ export default function App() {
 
   const sectionProps = { data, onChange: setData, sections: SECTIONS, onNavigate: setActive, onPrint: () => setShowPreviewModal(true) };
   const sectionMap = {
-    import: <ImportPanel onImport={handleImport} onToast={showToast} />,
+    import: <ImportPanel onImport={handleImport} onImportFile={handleImportFile} onToast={showToast} />,
     jd: <JobDescSection jobDesc={jobDesc} setJobDesc={setJobDesc} data={data} onKeywordsChange={handleKeywordsChange} />,
     personal:       <PersonalSection {...sectionProps} />,
     summary:        <SummarySection {...sectionProps} />,
@@ -106,13 +187,31 @@ export default function App() {
         document.body
       )}
 
-      <div className="app">
+      {/* ── SPLASH SCREEN ── */}
+      <div className={`splash-screen ${!showSplash ? 'hidden' : ''}`}>
+        <div className="splash-logo">C</div>
+        <div className="splash-text">Craft<span>CV</span></div>
+        <div className="splash-sub">ATS-Optimized Builder</div>
+      </div>
+
+      <div className="app" style={{ pointerEvents: showSplash ? 'none' : 'auto' }}>
+      {/* ── AUTH INTERCEPTOR (locks interaction if not logged in) ── */}
+      {!user && !showSplash && !showAuthModal && (
+        <div className="auth-interceptor" onClickCapture={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          setShowAuthModal(true);
+        }}>
+          {/* Invisible overlay that captures all clicks */}
+        </div>
+      )}
+
       {/* ── TOP BAR ── */}
       <div className="topbar">
         <div className="topbar-brand">
-          <div className="brand-icon">R</div>
+          <div className="brand-icon">C</div>
           <div>
-            <div className="brand-name">Resume<span>Forge</span></div>
+            <div className="brand-name">Craft<span>CV</span></div>
             <div className="brand-tagline">ATS-Optimized Builder</div>
           </div>
         </div>
@@ -176,45 +275,76 @@ export default function App() {
 
         {/* ── SIDEBAR ── */}
         <div className="sidebar">
-          <div className="sidebar-section-label">Tools</div>
-          {ALL_SECTIONS.filter(s => s.special).map(s => (
-            <button
-              key={s.id}
-              className={`nav-item special-nav${active === s.id ? ' active' : ''}`}
-              onClick={() => setActive(s.id)}
-            >
-              <span className="nav-icon">{s.icon}</span>
-              <span className="nav-label">{s.label}</span>
-              {s.id === 'jd' && jobDesc.length > 20 && (
-                <span style={{
-                  marginLeft: 'auto', fontSize: '.65rem', fontWeight: 700,
-                  padding: '2px 7px', borderRadius: 10,
-                  background: kwMatchPct >= 70 ? 'var(--green)' : 'var(--yellow)',
-                  color: 'white',
-                }}>{kwMatchPct}%</span>
-              )}
-            </button>
-          ))}
+          {/* ── MODE TOGGLE ── */}
+          <div style={{ display: 'flex', gap: 4, paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
+             <button onClick={() => setAppMode('BUILDER')} className={`btn btn-sm ${appMode === 'BUILDER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center' }}>Builder 🛠</button>
+             <button onClick={() => { if (importedFile) { setAppMode('ANALYZER'); setAnalyzerTab('edit'); } else { setAppMode('ANALYZER'); setAnalyzerTab('import'); } }} className={`btn btn-sm ${appMode === 'ANALYZER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center' }}>Analyzer 🔍</button>
+          </div>
 
-          <div className="sidebar-section-label">Resume Sections</div>
-          {SECTIONS.map(s => (
-            <button
-              key={s.id}
-              className={`nav-item${active === s.id ? ' active' : ''}`}
-              onClick={() => setActive(s.id)}
-            >
-              <span className="nav-icon">{s.icon}</span>
-              <span className="nav-label">{s.label}</span>
-              {isDone(s.id, data)
-                ? <span className="nav-done">✓</span>
-                : active === s.id ? <span className="nav-badge">Edit</span> : null
-              }
-            </button>
-          ))}
+          {appMode === 'BUILDER' ? (
+            <>
+              <div className="sidebar-section-label">Tools</div>
+              {ALL_SECTIONS.filter(s => s.special).map(s => (
+                <button
+                  key={s.id}
+                  className={`nav-item special-nav${active === s.id ? ' active' : ''}`}
+                  onClick={() => setActive(s.id)}
+                >
+                  <span className="nav-icon">{s.icon}</span>
+                  <span className="nav-label">{s.label}</span>
+                  {s.id === 'jd' && jobDesc.length > 20 && (
+                    <span style={{
+                      marginLeft: 'auto', fontSize: '.65rem', fontWeight: 700,
+                      padding: '2px 7px', borderRadius: 10,
+                      background: kwMatchPct >= 70 ? 'var(--green)' : 'var(--yellow)',
+                      color: 'white',
+                    }}>{kwMatchPct}%</span>
+                  )}
+                </button>
+              ))}
+
+              <div className="sidebar-section-label">Resume Sections</div>
+              {SECTIONS.map(s => (
+                <button
+                  key={s.id}
+                  className={`nav-item${active === s.id ? ' active' : ''}`}
+                  onClick={() => setActive(s.id)}
+                >
+                  <span className="nav-icon">{s.icon}</span>
+                  <span className="nav-label">{s.label}</span>
+                  {isDone(s.id, data)
+                    ? <span className="nav-done">✓</span>
+                    : active === s.id ? <span className="nav-badge">Edit</span> : null
+                  }
+                </button>
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="sidebar-section-label">Analyzer Tools</div>
+              <button className={`nav-item special-nav${analyzerTab === 'import' ? ' active' : ''}`} onClick={() => setAnalyzerTab('import')}>
+                <span className="nav-icon">📂</span><span className="nav-label">Upload Resume</span>
+              </button>
+              <button className={`nav-item special-nav${analyzerTab === 'edit' ? ' active' : ''}`} onClick={() => setAnalyzerTab('edit')} disabled={!importedFile}>
+                <span className="nav-icon">✏️</span><span className="nav-label">Edit Resume Text</span>
+              </button>
+              <button className={`nav-item special-nav${analyzerTab === 'jd' ? ' active' : ''}`} onClick={() => setAnalyzerTab('jd')}>
+                <span className="nav-icon">🎯</span><span className="nav-label">Job Description</span>
+                {jobDesc.length > 20 && (
+                  <span style={{
+                    marginLeft: 'auto', fontSize: '.65rem', fontWeight: 700,
+                    padding: '2px 7px', borderRadius: 10,
+                    background: kwMatchPct >= 70 ? 'var(--green)' : 'var(--yellow)',
+                    color: 'white',
+                  }}>{kwMatchPct}%</span>
+                )}
+              </button>
+            </>
+          )}
 
           {/* Strength meter */}
           <div className="sidebar-strength" style={{ cursor: 'pointer' }} onClick={() => setShowAtsModal(true)} title="View Detailed ATS Report">
-            <div className="strength-label">Resume Strength</div>
+            <div className="strength-label">{appMode === 'ANALYZER' ? 'Uploaded Resume Strength' : 'Resume Strength'}</div>
             <div className="strength-bar-bg">
               <div className="strength-bar-fill" style={{ width: `${atsScore}%` }} />
             </div>
@@ -230,17 +360,65 @@ export default function App() {
 
         {/* ── FORM PANEL ── */}
         <div className="form-panel">
-          {sectionMap[active]}
+          {appMode === 'ANALYZER' ? (
+             analyzerTab === 'import' ? (
+               <ImportPanel onImport={handleImport} onImportFile={handleImportFile} onToast={showToast} />
+             ) : analyzerTab === 'edit' ? (
+               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                 <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                   <div>
+                     <div className="section-title">✏️ Edit Uploaded Resume</div>
+                     <div className="section-desc">Click anywhere on the resume below to edit. Changes update your ATS Score live.</div>
+                   </div>
+                   <button
+                     className="btn btn-sm btn-primary"
+                     style={{ whiteSpace: 'nowrap' }}
+                     onClick={() => {
+                       if (!editRef.current) return;
+                       const printWin = window.open('', '_blank');
+                       printWin.document.write(`<!DOCTYPE html><html><head><title>Resume</title><style>body{font-family:"Segoe UI",system-ui,sans-serif;padding:40px 60px;color:#222;font-size:12px;line-height:1.6;}h3{margin:14px 0 5px;font-size:13px;font-weight:800;text-transform:uppercase;border-bottom:2px solid #4361ee;padding-bottom:3px;color:#1a1a2e;letter-spacing:0.5px;} @media print{body{padding:20px 40px;}}</style></head><body>${editRef.current.innerHTML}</body></html>`);
+                       printWin.document.close();
+                       printWin.focus();
+                       setTimeout(() => { printWin.print(); printWin.close(); }, 300);
+                       showToast('Print dialog opened — save as PDF!', 'success');
+                     }}
+                   >⬇ Save as PDF</button>
+                 </div>
+                 <div
+                   ref={editRef}
+                   contentEditable
+                   suppressContentEditableWarning
+                   onInput={handleEditInput}
+                   style={{
+                     width: '100%', minHeight: 600, padding: '40px 48px', boxSizing: 'border-box',
+                     background: 'white', color: '#222', borderRadius: 10,
+                     boxShadow: '0 2px 16px rgba(0,0,0,.08)',
+                     border: '1px solid var(--border)',
+                     fontFamily: '"Segoe UI", system-ui, -apple-system, sans-serif',
+                     fontSize: '12px', lineHeight: 1.6,
+                     outline: 'none', cursor: 'text',
+                     overflowY: 'auto',
+                   }}
+                 />
+               </div>
+             ) : (
+               <JobDescSection jobDesc={jobDesc} setJobDesc={setJobDesc} data={data} onKeywordsChange={handleKeywordsChange} text={importedText} />
+             )
+          ) : (
+             sectionMap[active]
+          )}
         </div>
 
         {/* ── PREVIEW PANEL ── */}
         <div className="preview-panel">
           <div className="preview-toolbar">
-            <span className="preview-label">Live Preview</span>
+            <span className="preview-label">{appMode === 'ANALYZER' ? 'Uploaded Resume' : 'Live Preview'}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select className="f-select" style={{ padding: '2px 8px', fontSize: '.7rem', height: 26 }} value={template} onChange={e => setTemplate(e.target.value)}>
-                {templates.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-              </select>
+              {appMode === 'BUILDER' && (
+                <select className="f-select" style={{ padding: '2px 8px', fontSize: '.7rem', height: 26 }} value={template} onChange={e => setTemplate(e.target.value)}>
+                  {templates.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                </select>
+              )}
               <div className="zoom-ctrl">
                 <button className="zoom-btn" onClick={() => setZoom(z => Math.max(.35, +(z - .06).toFixed(2)))}>−</button>
                 <span className="zoom-val">{Math.round(zoom * 100)}%</span>
@@ -249,11 +427,21 @@ export default function App() {
             </div>
           </div>
 
-          {/* Scaler wrapper — clips the scaled resume so it doesn't overflow */}
-          <div style={{ width: scaledW, height: scaledH, overflow: 'hidden', margin: '0 auto' }}>
-            <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: A4_W_PX }}>
-              <ResumePreview data={data} template={template} />
-            </div>
+          {/* Preview content */}
+          <div style={{ width: scaledW, height: scaledH, overflow: 'hidden', margin: '0 auto', background: appMode === 'ANALYZER' ? 'white' : 'transparent' }}>
+            {appMode === 'ANALYZER' && importedFile ? (
+              importedFile.type === 'pdf' ? (
+                <iframe src={importedFile.url + '#toolbar=0&navpanes=0&scrollbar=0'} width="100%" height="100%" style={{ border: 'none', width: A4_W_PX, height: A4_H_PX, transform: `scale(${zoom})`, transformOrigin: 'top left' }} />
+              ) : (
+                <div style={{ width: A4_W_PX, height: A4_H_PX, transform: `scale(${zoom})`, transformOrigin: 'top left', overflow: 'auto', padding: 40, boxSizing: 'border-box', background: 'white', color: 'black' }} dangerouslySetInnerHTML={{ __html: importedFile.content }} />
+              )
+            ) : appMode === 'ANALYZER' && !importedFile ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: '.85rem', textAlign: 'center', padding: 40 }}>Upload a resume using the sidebar to see the preview here.</div>
+            ) : (
+              <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: A4_W_PX }}>
+                <ResumePreview data={data} template={template} />
+              </div>
+            )}
           </div>
         </div>
 
@@ -262,11 +450,11 @@ export default function App() {
       {/* ── ATS REPORT MODAL ── */}
       {showAtsModal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAtsModal(false)}>
-          <div className="modal" style={{ maxWidth: 700 }}>
+          <div className="modal" style={{ maxWidth: 750, maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <div>
                 <div className="modal-title">📊 ATS Compatibility Report</div>
-                <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: 2 }}>Analysis based on resume completeness and Job Description match</div>
+                <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: 2 }}>{appMode === 'ANALYZER' ? 'Detailed analysis of your uploaded resume' : 'Analysis based on resume completeness and Job Description match'}</div>
               </div>
               <button className="modal-close" onClick={() => setShowAtsModal(false)}>✕</button>
             </div>
@@ -283,55 +471,141 @@ export default function App() {
                   {atsScore >= 80 ? 'Excellent Match! 🎉' : atsScore >= 50 ? 'Needs Optimization ⚠️' : 'Poor Match ❌'}
                 </h3>
                 <p style={{ fontSize: '.85rem', color: 'var(--muted)', marginTop: 6, lineHeight: 1.5 }}>
-                  {atsScore >= 80 ? 'Your resume is highly optimized for Applicant Tracking Systems. You have a great chance of passing the initial screen.' : atsScore >= 50 ? 'Your resume has a fair foundation but is missing critical keywords or sections required by the job description.' : 'Your resume lacks the fundamental keywords and sections needed to pass an ATS. Significant revisions are highly recommended.'}
+                  {atsScore >= 80 ? 'Your resume is highly optimized for ATS.' : atsScore >= 50 ? 'Fair foundation but missing critical keywords or sections.' : 'Significant improvements needed to pass ATS screening.'}
                 </p>
-              </div>
-            </div>
-
-            <div className="fg fg2">
-              <div className="form-card" style={{ padding: 16, margin: 0 }}>
-                <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--ink)', borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 12 }}>Content Completeness: <span style={{ color: baseScore >= 80 ? 'var(--green)' : 'var(--yellow)' }}>{baseScore}%</span></div>
-                <ul style={{ paddingLeft: 18, margin: 0, fontSize: '.8rem', color: 'var(--ink2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {data.personal.firstName && data.personal.email && data.personal.phone ? <li>✅ Contact info complete</li> : <li style={{ color: 'var(--red)' }}>❌ Missing critical contact info</li>}
-                  {data.summary.length > 50 ? <li>✅ Summary looks solid</li> : <li style={{ color: 'var(--yellow)' }}>⚠️ Summary is missing or too short</li>}
-                  {data.experience.length > 0 ? <li>✅ Experience listed</li> : <li style={{ color: 'var(--red)' }}>❌ Missing work experience</li>}
-                  {data.education.length > 0 ? <li>✅ Education listed</li> : <li style={{ color: 'var(--red)' }}>❌ Missing education</li>}
-                  {data.skills.some(s => s.skills.length > 0) ? <li>✅ Skills listed</li> : <li style={{ color: 'var(--red)' }}>❌ Missing skills section</li>}
-                </ul>
-              </div>
-              
-              <div className="form-card" style={{ padding: 16, margin: 0 }}>
-                <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--ink)', borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 12 }}>Job Description Match: <span style={{ color: kwMatchPct >= 70 ? 'var(--green)' : 'var(--red)' }}>{jobDesc.length > 20 ? `${kwMatchPct}%` : 'N/A'}</span></div>
-                {jobDesc.length < 20 ? (
-                  <div style={{ fontSize: '.8rem', color: 'var(--muted)', fontStyle: 'italic' }}>Paste a job description in the Job Description tool to unlock keyword matching.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>✓ Found ({kwFound.length})</div>
-                      <div className="keyword-chips">
-                        {kwFound.slice(0, 10).map(m => <span key={m.keyword} className="keyword-chip found" style={{ padding: '2px 6px', fontSize: '.65rem' }}>{m.keyword}</span>)}
-                        {kwFound.length > 10 && <span style={{ fontSize: '.65rem', color: 'var(--muted)', alignSelf: 'center' }}>+{kwFound.length - 10} more</span>}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--red)', marginBottom: 4 }}>✕ Missing ({kwMissing.length})</div>
-                      <div className="keyword-chips">
-                        {kwMissing.slice(0, 10).map(m => <span key={m.keyword} className="keyword-chip missing" style={{ padding: '2px 6px', fontSize: '.65rem' }}>{m.keyword}</span>)}
-                        {kwMissing.length > 10 && <span style={{ fontSize: '.65rem', color: 'var(--muted)', alignSelf: 'center' }}>+{kwMissing.length - 10} more</span>}
-                      </div>
-                    </div>
+                {jobDesc.length > 20 && (
+                  <div style={{ marginTop: 8, display: 'flex', gap: 16, fontSize: '.75rem' }}>
+                    <span>Content: <strong style={{ color: baseScore >= 70 ? 'var(--green)' : 'var(--yellow)' }}>{baseScore}%</strong></span>
+                    <span>JD Match: <strong style={{ color: kwMatchPct >= 60 ? 'var(--green)' : 'var(--red)' }}>{kwMatchPct}%</strong></span>
+                    <span style={{ color: 'var(--muted)' }}>Formula: 60% content + 40% JD</span>
                   </div>
                 )}
               </div>
             </div>
 
-            <div style={{ marginTop: 24, padding: 16, background: 'var(--accent-light)', border: '1px solid var(--accent-mid)', borderRadius: 12 }}>
-              <h4 style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--accent)', marginBottom: 8 }}>💡 Recommendations to Improve</h4>
+            {/* Analyzer mode: detailed category breakdown */}
+            {appMode === 'ANALYZER' && analyzerReport && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, position: 'relative' }}>
+                <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>Category Breakdown</div>
+                
+                <div className={user?.plan !== 'pro' ? 'premium-blur' : ''} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {analyzerReport.checks.map((check, i) => (
+                    <div key={i} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: '.8rem', fontWeight: 700, color: 'var(--ink)' }}>{check.icon} {check.category}</span>
+                        <span style={{ fontSize: '.75rem', fontWeight: 800, color: check.score >= check.maxScore ? 'var(--green)' : check.score >= check.maxScore * 0.5 ? 'var(--yellow)' : 'var(--red)' }}>{check.score}/{check.maxScore}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <div style={{ flex: 1, height: 4, background: 'var(--border)', borderRadius: 2 }}>
+                          <div style={{ width: `${(check.score / check.maxScore) * 100}%`, height: '100%', background: check.score >= check.maxScore ? 'var(--green)' : check.score >= check.maxScore * 0.5 ? 'var(--yellow)' : 'var(--red)', borderRadius: 2, transition: 'width .3s' }} />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {check.details.map((d, j) => (
+                          <div key={j} style={{ fontSize: '.72rem', color: d.ok ? 'var(--green)' : 'var(--red)' }}>
+                            {d.ok ? '✓' : '✗'} {d.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {user?.plan !== 'pro' && (
+                  <div className="premium-overlay">
+                    <div className="premium-lock-card">
+                      <div style={{ fontSize: '2rem', marginBottom: 8 }}>🔒</div>
+                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--ink)', marginBottom: 6 }}>Detailed Analysis Locked</h3>
+                      <p style={{ fontSize: '.85rem', color: 'var(--muted)', marginBottom: 16, lineHeight: 1.5 }}>
+                        Upgrade to <strong>CraftCV Pro</strong> to see exactly which keywords, formatting rules, and sections are hurting your ATS score.
+                      </p>
+                      <button className="btn btn-primary" onClick={async () => {
+                        const loadingToastId = showToast('Upgrading...', 'info');
+                        const success = await upgradeToPro();
+                        if (success) {
+                          showToast('You are now a Pro member! 🎉', 'success');
+                        } else {
+                          showToast('Upgrade failed. Please try again.', 'error');
+                        }
+                      }}>
+                        ⭐ Upgrade to Pro — ₹149/mo
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Builder mode: simple content checks */}
+            {appMode === 'BUILDER' && (
+              <div className="fg fg2">
+                <div className="form-card" style={{ padding: 16, margin: 0 }}>
+                  <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--ink)', borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 12 }}>Content Completeness: <span style={{ color: baseScore >= 80 ? 'var(--green)' : 'var(--yellow)' }}>{baseScore}%</span></div>
+                  <ul style={{ paddingLeft: 18, margin: 0, fontSize: '.8rem', color: 'var(--ink2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {data.personal.firstName && data.personal.email && data.personal.phone ? <li>✅ Contact info complete</li> : <li style={{ color: 'var(--red)' }}>❌ Missing critical contact info</li>}
+                    {data.summary.length > 50 ? <li>✅ Summary looks solid</li> : <li style={{ color: 'var(--yellow)' }}>⚠️ Summary is missing or too short</li>}
+                    {data.experience.length > 0 ? <li>✅ Experience listed</li> : <li style={{ color: 'var(--red)' }}>❌ Missing work experience</li>}
+                    {data.education.length > 0 ? <li>✅ Education listed</li> : <li style={{ color: 'var(--red)' }}>❌ Missing education</li>}
+                    {data.skills.some(s => s.skills.length > 0) ? <li>✅ Skills listed</li> : <li style={{ color: 'var(--red)' }}>❌ Missing skills section</li>}
+                  </ul>
+                </div>
+                
+                <div className="form-card" style={{ padding: 16, margin: 0 }}>
+                  <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--ink)', borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 12 }}>Job Description Match: <span style={{ color: kwMatchPct >= 70 ? 'var(--green)' : 'var(--red)' }}>{jobDesc.length > 20 ? `${kwMatchPct}%` : 'N/A'}</span></div>
+                  {jobDesc.length < 20 ? (
+                    <div style={{ fontSize: '.8rem', color: 'var(--muted)', fontStyle: 'italic' }}>Paste a job description to unlock keyword matching.</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>✓ Found ({kwFound.length})</div>
+                        <div className="keyword-chips">
+                          {kwFound.slice(0, 10).map(m => <span key={m.keyword} className="keyword-chip found" style={{ padding: '2px 6px', fontSize: '.65rem' }}>{m.keyword}</span>)}
+                          {kwFound.length > 10 && <span style={{ fontSize: '.65rem', color: 'var(--muted)', alignSelf: 'center' }}>+{kwFound.length - 10} more</span>}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--red)', marginBottom: 4 }}>✗ Missing ({kwMissing.length})</div>
+                        <div className="keyword-chips">
+                          {kwMissing.slice(0, 10).map(m => <span key={m.keyword} className="keyword-chip missing" style={{ padding: '2px 6px', fontSize: '.65rem' }}>{m.keyword}</span>)}
+                          {kwMissing.length > 10 && <span style={{ fontSize: '.65rem', color: 'var(--muted)', alignSelf: 'center' }}>+{kwMissing.length - 10} more</span>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Analyzer JD Keywords */}
+            {appMode === 'ANALYZER' && jobDesc.length > 20 && (
+              <div className="form-card" style={{ padding: 16, margin: '0 0 16px' }}>
+                <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--ink)', borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 12 }}>Job Description Match: <span style={{ color: kwMatchPct >= 60 ? 'var(--green)' : 'var(--red)' }}>{kwMatchPct}%</span></div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--green)', marginBottom: 4 }}>✓ Found ({kwFound.length})</div>
+                    <div className="keyword-chips">
+                      {kwFound.map(m => <span key={m.keyword} className="keyword-chip found" style={{ padding: '2px 6px', fontSize: '.65rem' }}>{m.keyword}</span>)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--red)', marginBottom: 4 }}>✗ Missing ({kwMissing.length})</div>
+                    <div className="keyword-chips">
+                      {kwMissing.map(m => <span key={m.keyword} className="keyword-chip missing" style={{ padding: '2px 6px', fontSize: '.65rem' }}>{m.keyword}</span>)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: 8, padding: 16, background: 'var(--accent-light)', border: '1px solid var(--accent-mid)', borderRadius: 12 }}>
+              <h4 style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--accent)', marginBottom: 8 }}>💡 Recommendations</h4>
               <ul style={{ paddingLeft: 18, margin: 0, fontSize: '.8rem', color: 'var(--ink2)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {kwMissing.length > 0 && <li>Tailor your resume by adding missing keywords like <strong>{kwMissing.slice(0, 3).map(m => m.keyword).join(', ')}</strong> naturally into your experience bullet points or summary.</li>}
-                {baseScore < 100 && <li>Complete all standard resume sections (Summary, Experience, Education, Skills) to ensure parsing engines don't miss crucial categorization.</li>}
-                <li>Use standard formatting. The generated PDF from ResumeForge is already optimized (clean text layer, standard fonts) for high ATS readability.</li>
-                <li>Ensure your job titles in the Experience section somewhat mirror the target role title if applicable.</li>
+                {kwMissing.length > 0 && <li>Add missing keywords like <strong>{kwMissing.slice(0, 3).map(m => m.keyword).join(', ')}</strong> naturally into your experience or summary.</li>}
+                {appMode === 'ANALYZER' && analyzerReport && analyzerReport.checks.filter(c => c.score < c.maxScore).slice(0, 3).map((c, i) => (
+                  <li key={i}>Improve <strong>{c.category}</strong> ({c.score}/{c.maxScore}) — {c.details.filter(d => !d.ok).map(d => d.label).join('; ')}</li>
+                ))}
+                {baseScore < 80 && <li>Ensure all standard sections (Summary, Experience, Education, Skills) are present.</li>}
+                <li>Use standard formatting. Avoid tables, images, and fancy fonts that ATS parsers may not read.</li>
               </ul>
             </div>
             

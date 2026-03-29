@@ -6,7 +6,6 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('rf_token'));
   const [offer, setOffer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,18 +20,16 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // Fetch current user with stored token
-  const fetchMe = useCallback(async (tok) => {
+  // Fetch current user with stored cookie
+  const fetchMe = useCallback(async () => {
     try {
       const res = await fetch(`${API}/auth/me/`, {
-        headers: { Authorization: `Token ${tok}` },
+        credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
         setUser(data);
       } else {
-        localStorage.removeItem('rf_token');
-        setToken(null);
         setUser(null);
       }
     } catch {
@@ -45,7 +42,7 @@ export function AuthProvider({ children }) {
     const init = async () => {
       setIsLoading(true);
       await fetchOffer();
-      if (token) await fetchMe(token);
+      await fetchMe();
       setIsLoading(false);
     };
     init();
@@ -54,13 +51,12 @@ export function AuthProvider({ children }) {
   const register = async ({ first_name, last_name, email, password }) => {
     const res = await fetch(`${API}/auth/register/`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ first_name, last_name, email, password }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Registration failed');
-    localStorage.setItem('rf_token', data.token);
-    setToken(data.token);
     setUser(data.user);
     await fetchOffer();
     return data.user;
@@ -69,34 +65,47 @@ export function AuthProvider({ children }) {
   const login = async ({ email, password }) => {
     const res = await fetch(`${API}/auth/login/`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Login failed');
-    localStorage.setItem('rf_token', data.token);
-    setToken(data.token);
     setUser(data.user);
     await fetchOffer();
     return data.user;
   };
 
   const logout = async () => {
-    if (token) {
+    if (user) {
       try {
         await fetch(`${API}/auth/logout/`, {
           method: 'POST',
-          headers: { Authorization: `Token ${token}` },
+          credentials: 'include',
         });
       } catch {}
     }
-    localStorage.removeItem('rf_token');
-    setToken(null);
     setUser(null);
   };
 
+  const upgradeToPro = async (transaction_id = null) => {
+    if (!user) return;
+    const res = await fetch(`${API}/upgrade/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transaction_id })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setUser(data.user); // updates plan to 'pro'
+      return true;
+    }
+    return false;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, offer, isLoading, login, logout, register, fetchOffer }}>
+    <AuthContext.Provider value={{ user, offer, isLoading, login, logout, register, fetchOffer, upgradeToPro }}>
       {children}
     </AuthContext.Provider>
   );
