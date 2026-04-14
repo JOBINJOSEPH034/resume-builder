@@ -389,12 +389,17 @@ def run_setup(request):
         # Run database migrations directly on the remote database
         call_command('migrate', interactive=False)
         
-        # Create Superuser if not exists
-        if not User.objects.filter(username='admin').exists():
-            User.objects.create_superuser('admin', 'admin@craftcv.com', 'Adminpass123!')
-            msg = 'Migrations applied and superuser (admin / Adminpass123!) created successfully!'
+        # Create or update Superuser
+        user, created = User.objects.get_or_create(username='admin', defaults={'email': 'admin@craftcv.com'})
+        user.set_password('Adminpass123!')
+        user.is_staff = True
+        user.is_superuser = True
+        user.save()
+        
+        if created:
+            msg = 'Migrations applied and superuser created successfully!'
         else:
-            msg = 'Migrations applied. Superuser already exists.'
+            msg = 'Migrations applied. Existing superuser password forcefully reset.'
             
         return Response({'status': 'success', 'message': msg})
     except Exception as e:
