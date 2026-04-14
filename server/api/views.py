@@ -56,7 +56,12 @@ def register(request):
             'downloads_used': user.profile.downloads_used,
         }
     }, status=status.HTTP_201_CREATED)
-    response.set_cookie('rf_session', token.key, httponly=True, secure=not settings.DEBUG, samesite='Lax')
+    response.set_cookie(
+        'rf_session', token.key,
+        httponly=True,
+        secure=True,       # always secure (required for SameSite=None)
+        samesite='None',   # must be None for cross-origin cookie sending
+    )
     return response
 
 
@@ -84,7 +89,12 @@ def login_view(request):
             'downloads_used': user.profile.downloads_used if hasattr(user, 'profile') else 0,
         }
     })
-    response.set_cookie('rf_session', token.key, httponly=True, secure=not settings.DEBUG, samesite='Lax')
+    response.set_cookie(
+        'rf_session', token.key,
+        httponly=True,
+        secure=True,       # always secure (required for SameSite=None)
+        samesite='None',   # must be None for cross-origin cookie sending
+    )
     return response
 
 

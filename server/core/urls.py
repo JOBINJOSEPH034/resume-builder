@@ -18,11 +18,20 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
 
+
 def health_check(request):
     return JsonResponse({'status': 'ok', 'service': 'CraftCV API'})
+
+
+def test_view(request):
+    """Simple endpoint to verify API is reachable and CORS is working."""
+    return JsonResponse({'message': 'working', 'service': 'CraftCV API', 'version': '1.0'})
+
 
 urlpatterns = [
     path('', health_check, name='health_check'),
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
+    path('api/test/', test_view, name='test'),
 ]
+

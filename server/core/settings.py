@@ -120,6 +120,17 @@ CSRF_TRUSTED_ORIGINS = [
 _csrf_extra = [h.strip() for h in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if h.strip()]
 CSRF_TRUSTED_ORIGINS += _csrf_extra
 
+# Cross-origin cookie settings (required for SameSite=None to work)
+# Without these, the rf_session cookie is blocked on cross-origin requests.
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+
+# Backup CORS setting (CORS is primarily handled by wsgi.py CORSMiddleware)
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
 
 
 
