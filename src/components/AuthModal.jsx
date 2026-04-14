@@ -17,10 +17,11 @@ export default function AuthModal({ onClose, onSuccess }) {
     try {
       if (tab === 'login') {
         await login({ email: form.email, password: form.password });
+        onSuccess?.('login', form.email);
       } else {
-        await register(form);
+        const u = await register(form);
+        onSuccess?.('register', u?.name || `${form.first_name} ${form.last_name}`.trim());
       }
-      onSuccess?.(tab);
       onClose();
     } catch (err) {
       setError(err.message);

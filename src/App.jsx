@@ -12,10 +12,11 @@ import { ImportPanel, JobDescSection } from './components/ImportAndJD.jsx';
 import { useAuth } from './AuthContext.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
+import WelcomeModal, { hasBeenWelcomed, markWelcomed } from './components/WelcomeModal.jsx';
 import {
   User, AlignLeft, Briefcase, GraduationCap, Zap, FolderOpen, Award, Globe,
   FolderInput, Target, Upload, PenLine, Sun, Moon, BarChart2, Eye, Download,
-  LogIn, CheckCircle2, Wrench, ScanSearch, ChevronRight, ChevronLeft, Sparkles,
+  LogIn, CheckCircle2, Wrench, ScanSearch, ChevronRight, ChevronLeft, Sparkles, X,
 } from 'lucide-react';
 
 // A4 dimensions in pixels at 96dpi
@@ -50,6 +51,8 @@ export default function App() {
   const [showAtsModal, setShowAtsModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeName, setWelcomeName] = useState('');
   const [importedFile, setImportedFile] = useState(null);
   const [importedText, setImportedText] = useState('');
   const [importedHtml, setImportedHtml] = useState('');
@@ -468,16 +471,31 @@ export default function App() {
 
       </div>
 
+      {/* ── FOOTER ── */}
+      <div style={{
+        height: 28, flexShrink: 0,
+        background: 'var(--surface)',
+        borderTop: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        gap: 6, fontSize: '.67rem', color: 'var(--muted)',
+      }}>
+        <span>© {new Date().getFullYear()} CraftCV</span>
+        <span style={{ opacity: .4 }}>·</span>
+        <span>Powered by <strong style={{ color: 'var(--ink2)', fontWeight: 700 }}>Jobin Joseph</strong></span>
+        <span style={{ opacity: .4 }}>·</span>
+        <span>ATS-Optimized Resume Builder</span>
+      </div>
+
       {/* ── ATS REPORT MODAL ── */}
       {showAtsModal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAtsModal(false)}>
           <div className="modal" style={{ maxWidth: 750, maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <div>
-                <div className="modal-title">📊 ATS Compatibility Report</div>
+                <div className="modal-title">ATS Compatibility Report</div>
                 <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: 2 }}>{appMode === 'ANALYZER' ? 'Detailed analysis of your uploaded resume' : 'Analysis based on resume completeness and Job Description match'}</div>
               </div>
-              <button className="modal-close" onClick={() => setShowAtsModal(false)}>✕</button>
+              <button className="modal-close" onClick={() => setShowAtsModal(false)}><X size={16} strokeWidth={2} /></button>
             </div>
             
             <div style={{ display: 'flex', gap: 24, marginBottom: 24, alignItems: 'center', background: 'var(--surface2)', padding: 20, borderRadius: 12 }}>
@@ -699,11 +717,29 @@ export default function App() {
       {showAuthModal && (
         <AuthModal 
           onClose={() => setShowAuthModal(false)} 
-          onSuccess={(tab) => showToast(tab === 'login' ? 'Welcome back! 👋' : 'Account created successfully! 🎉', 'success')} 
+          onSuccess={(tab, userName) => {
+            if (tab === 'register' && !hasBeenWelcomed()) {
+              setWelcomeName(userName || user?.name || '');
+              setShowWelcome(true);
+            } else {
+              showToast(tab === 'login' ? 'Welcome back! 👋' : 'Account created! 🎉', 'success');
+            }
+          }} 
         />
       )}
 
       <ToastContainer toasts={toasts} />
+
+      {/* ── WELCOME / ONBOARDING MODAL ── */}
+      {showWelcome && (
+        <WelcomeModal
+          userName={welcomeName}
+          onClose={() => {
+            setShowWelcome(false);
+            showToast(`Welcome aboard, ${welcomeName?.split(' ')[0] || 'friend'}! 🎉`, 'success');
+          }}
+        />
+      )}
 
       </div>{/* end .app */}
     </>
