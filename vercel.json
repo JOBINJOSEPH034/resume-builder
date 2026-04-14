@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://resume-builder-git-main-jobinjosephdev-5899s-projects.vercel.app/api/:path*"
+      "destination": "https://resume-builder-chi-eosin.vercel.app/api/:path*"
     },
     {
       "source": "/(.*)",
