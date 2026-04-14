@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API = import.meta.env.VITE_API_URL || '/api';
+// Force relative '/api' in production so Vercel rewrites proxy it to the backend.
+// In local dev, use the local django server.
+const API = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api');
 
 const AuthContext = createContext(null);
 
