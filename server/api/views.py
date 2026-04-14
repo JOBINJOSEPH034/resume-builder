@@ -58,6 +58,7 @@ def register(request):
     }, status=status.HTTP_201_CREATED)
     response.set_cookie(
         'rf_session', token.key,
+        max_age=86400,     # expires in exactly 24 hours
         httponly=True,
         secure=True,       # always secure (required for SameSite=None)
         samesite='None',   # must be None for cross-origin cookie sending
@@ -91,6 +92,7 @@ def login_view(request):
     })
     response.set_cookie(
         'rf_session', token.key,
+        max_age=86400,     # expires in exactly 24 hours
         httponly=True,
         secure=True,       # always secure (required for SameSite=None)
         samesite='None',   # must be None for cross-origin cookie sending
