@@ -67,9 +67,9 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'core.middleware.CORSMiddleware',   # Must be first — handles OPTIONS preflight
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -109,11 +109,8 @@ DATABASES = {
     )
 }
 
-# CORS — allow all origins (safe for a resume builder; auth is token-based)
-# The @vercel/python serverless runtime interferes with preflight OPTIONS header
-# processing when using origin lists or regexes, so we use allow-all instead.
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# CORS is handled by core.middleware.CORSMiddleware (replaces django-cors-headers
+# which does not work reliably in the Vercel @vercel/python serverless runtime)
 
 # Trust Vercel origins for CSRF (required for login/register POST requests)
 CSRF_TRUSTED_ORIGINS = [
