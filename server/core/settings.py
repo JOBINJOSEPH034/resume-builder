@@ -67,7 +67,6 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
-    'core.middleware.CORSMiddleware',   # Must be first — handles OPTIONS preflight
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
