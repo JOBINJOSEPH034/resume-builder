@@ -578,7 +578,39 @@ html, body {
 /* RESPONSIVE */
 @media (max-width: 1200px) { :root { --preview-w: 390px; } }
 @media (max-width: 1000px) { .preview-panel { display: none; } }
-@media (max-width: 760px) { .sidebar { display: none; } .form-panel { padding: 18px; } }
+@media (max-width: 850px) {
+  .topbar-hide-sm { display: none !important; }
+  .topbar-brand { flex: 1; }
+  .topbar-center { position: absolute; left: 50%; transform: translateX(-50%); }
+}
+@media (max-width: 760px) {
+  .sidebar { display: none; }
+  .form-panel { padding: 18px 14px; }
+  .topbar-center { display: none; }
+  .topbar-hide-xs { display: none !important; }
+  .mobile-menu-btn { display: flex; }
+  .topbar-brand { margin-left: 0; }
+  
+  /* Make profile pill smaller on very small screens */
+  .profile-pill { padding: 2px 2px 2px 10px; }
+  .profile-pill-name { display: none; }
+  .profile-pill-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+}
+
+/* Mobile Sidebar Drawer Styling */
+.mobile-menu-btn { display: none; background: transparent; border: none; color: var(--ink); cursor: pointer; padding: 6px; margin-right: 8px; border-radius: 8px; }
+.mobile-menu-btn:hover { background: var(--surface2); }
+
+.mobile-sidebar-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+  z-index: 2000; display: flex; animation: fadeInOverlay 0.2s ease;
+}
+.mobile-sidebar-drawer {
+  background: var(--surface); width: 280px; height: 100%; box-shadow: var(--shadow-xl);
+  display: flex; flex-direction: column; animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 
 /* Utility */
 .flex { display: flex; } .flex-col { flex-direction: column; } .items-center { align-items: center; }

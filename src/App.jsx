@@ -17,6 +17,7 @@ import {
   User, AlignLeft, Briefcase, GraduationCap, Zap, FolderOpen, Award, Globe,
   FolderInput, Target, Upload, PenLine, Sun, Moon, BarChart2, Eye, Download,
   LogIn, CheckCircle2, Wrench, ScanSearch, ChevronRight, ChevronLeft, Sparkles, X,
+  Menu, Settings,
 } from 'lucide-react';
 
 // A4 dimensions in pixels at 96dpi
@@ -53,6 +54,7 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeName, setWelcomeName] = useState('');
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [importedFile, setImportedFile] = useState(null);
   const [importedText, setImportedText] = useState('');
   const [importedHtml, setImportedHtml] = useState('');
@@ -229,6 +231,11 @@ export default function App() {
 
       {/* ── TOP BAR ── */}
       <div className="topbar">
+        {/* Hamburger - mobile only */}
+        <button className="mobile-menu-btn" onClick={() => setShowMobileSidebar(v => !v)} title="Menu">
+          <Menu size={20} strokeWidth={1.8} />
+        </button>
+
         <div className="topbar-brand">
           <div className="brand-icon">C</div>
           <div>
@@ -255,32 +262,32 @@ export default function App() {
           <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode">
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => setActive('import')} style={{ gap: 5 }}>
+          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setActive('import')} style={{ gap: 5 }}>
             <FolderInput size={14} /> Import
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={handleClear}>
+          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={handleClear}>
             Clear
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => setShowAtsModal(true)} style={{ gap: 5 }}>
+          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setShowAtsModal(true)} style={{ gap: 5 }}>
             <BarChart2 size={14} /> ATS Score
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => setShowPreviewModal(true)} style={{ gap: 5 }}>
+          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setShowPreviewModal(true)} style={{ gap: 5 }}>
             <Eye size={14} /> Preview
           </button>
           <button className="btn btn-sm btn-primary" onClick={handlePrint} style={{ gap: 5 }}>
-            <Download size={14} /> Download PDF
+            <Download size={14} /> <span className="topbar-hide-xs">Download PDF</span>
           </button>
           {!user ? (
             <button className="btn btn-sm btn-primary" onClick={() => setShowAuthModal(true)} style={{ gap: 5 }}>
-              <LogIn size={14} /> Sign In
+              <LogIn size={14} /> <span className="topbar-hide-xs">Sign In</span>
             </button>
           ) : (
-            <button 
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 4px 2px 10px', borderRadius: 20, cursor: 'pointer' }} 
+            <button
+              className="profile-pill"
               onClick={() => setShowProfileModal(true)}
             >
-              <span style={{ fontSize: '.75rem', fontWeight: 600, color: 'var(--ink)' }}>{user.name}</span>
-              <span style={{ background: 'var(--surface2)', color: 'var(--ink)', fontSize: '.7rem', padding: '4px 8px', borderRadius: 16, fontWeight: 700 }}>⚙️ Profile</span>
+              <span className="profile-pill-name">{user.name?.split(' ')[0]}</span>
+              <span className="profile-pill-icon"><Settings size={13} strokeWidth={2} /></span>
             </button>
           )}
         </div>
@@ -296,6 +303,46 @@ export default function App() {
 
       {/* ── BODY ── */}
       <div className="body-row">
+
+        {/* ── MOBILE SIDEBAR OVERLAY ── */}
+        {showMobileSidebar && (
+          <div className="mobile-sidebar-overlay" onClick={() => setShowMobileSidebar(false)}>
+            <div className="mobile-sidebar-drawer" onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontWeight: 800, fontSize: '.95rem', color: 'var(--ink)', fontFamily: 'Outfit, sans-serif' }}>Menu</div>
+                <button onClick={() => setShowMobileSidebar(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+              {/* same sidebar content injected here */}
+              <div style={{ padding: '10px 10px', overflowY: 'auto', flex: 1 }}>
+                <div className="sidebar-section-label">Tools</div>
+                {ALL_SECTIONS.filter(s => s.special).map(s => (
+                  <button key={s.id} className={`nav-item special-nav${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
+                    <span className="nav-icon"><NavIcon name={s.icon} /></span>
+                    <span className="nav-label">{s.label}</span>
+                  </button>
+                ))}
+                <div className="sidebar-section-label">Resume Sections</div>
+                {SECTIONS.map(s => (
+                  <button key={s.id} className={`nav-item${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
+                    <span className="nav-icon"><NavIcon name={s.icon} /></span>
+                    <span className="nav-label">{s.label}</span>
+                    {isDone(s.id, data) ? <span className="nav-done"><CheckCircle2 size={14} strokeWidth={2} /></span> : null}
+                  </button>
+                ))}
+                <div style={{ padding: '16px 10px 4px', borderTop: '1px solid var(--border)', marginTop: 12 }}>
+                  <button className="btn btn-primary w-full" onClick={() => { handlePrint(); setShowMobileSidebar(false); }} style={{ justifyContent: 'center', gap: 6 }}>
+                    <Download size={14} /> Download PDF
+                  </button>
+                  <button className="btn btn-secondary w-full" style={{ justifyContent: 'center', marginTop: 8 }} onClick={() => { setShowPreviewModal(true); setShowMobileSidebar(false); }}>
+                    <Eye size={14} /> Preview Resume
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── SIDEBAR ── */}
         <div className="sidebar">
