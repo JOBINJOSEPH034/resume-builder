@@ -106,8 +106,22 @@ export function AuthProvider({ children }) {
     return false;
   };
 
+  const applyPromoCode = async (code) => {
+    if (!user) throw new Error('Not logged in');
+    const res = await fetch(`${API}/apply-promo/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to apply promo code');
+    if (data.user) setUser(data.user); // if instantly upgraded
+    return data;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, offer, isLoading, login, logout, register, fetchOffer, upgradeToPro }}>
+    <AuthContext.Provider value={{ user, offer, isLoading, login, logout, register, fetchOffer, upgradeToPro, applyPromoCode }}>
       {children}
     </AuthContext.Provider>
   );

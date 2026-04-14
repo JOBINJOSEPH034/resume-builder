@@ -11,6 +11,7 @@ import { PersonalSection, SummarySection, ExperienceSection,
 import { ImportPanel, JobDescSection } from './components/ImportAndJD.jsx';
 import { useAuth } from './AuthContext.jsx';
 import AuthModal from './components/AuthModal.jsx';
+import ProfileModal from './components/ProfileModal.jsx';
 
 // A4 dimensions in pixels at 96dpi
 const A4_W_PX = 794;
@@ -32,6 +33,7 @@ export default function App() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showAtsModal, setShowAtsModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const [importedFile, setImportedFile] = useState(null);
   const [importedText, setImportedText] = useState('');
   const [importedHtml, setImportedHtml] = useState('');
@@ -254,10 +256,13 @@ export default function App() {
               Login / Sign Up
             </button>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 4px 2px 10px', borderRadius: 20 }}>
+            <button 
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 4px 2px 10px', borderRadius: 20, cursor: 'pointer' }} 
+              onClick={() => setShowProfileModal(true)}
+            >
               <span style={{ fontSize: '.75rem', fontWeight: 600, color: 'var(--ink)' }}>{user.name}</span>
-              <button style={{ background: 'transparent', border: 'none', color: 'var(--muted)', fontSize: '.7rem', cursor: 'pointer', padding: '4px 6px', fontWeight: 600 }} onClick={logout}>Logout</button>
-            </div>
+              <span style={{ background: 'var(--surface2)', color: 'var(--ink)', fontSize: '.7rem', padding: '4px 8px', borderRadius: 16, fontWeight: 700 }}>⚙️ Profile</span>
+            </button>
           )}
         </div>
       </div>
@@ -664,6 +669,14 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── PROFILE MODAL ── */}
+      {showProfileModal && (
+        <ProfileModal 
+          onClose={() => setShowProfileModal(false)}
+          showToast={showToast}
+        />
       )}
 
       {/* ── AUTH MODAL ── */}
