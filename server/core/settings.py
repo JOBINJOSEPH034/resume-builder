@@ -30,7 +30,15 @@ else:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
+# Always allow Vercel domains (covers production, preview, and branch deployments)
+# Plus any custom hosts defined via the ALLOWED_HOSTS env variable
+_extra_hosts = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '').split(',') if h.strip()]
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '.vercel.app',       # wildcard: covers all *.vercel.app subdomains
+    *_extra_hosts,
+]
 
 
 # Application definition
@@ -103,12 +111,30 @@ DATABASES = {
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = False
-if DEBUG:
-    CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://127.0.0.1:5173']
-else:
-    CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173').split(',')
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]
+if not DEBUG:
+    _cors_extra = [h.strip() for h in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if h.strip()]
+    CORS_ALLOWED_ORIGINS += _cors_extra
+
+# Allow all Vercel preview & production frontend URLs via regex
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.vercel\.app$',
+]
 
 CORS_ALLOW_CREDENTIALS = True
+
+# Trust Vercel origins for CSRF (required for login/register POST requests)
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'https://*.vercel.app',
+]
+_csrf_extra = [h.strip() for h in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if h.strip()]
+CSRF_TRUSTED_ORIGINS += _csrf_extra
+
 
 
 
