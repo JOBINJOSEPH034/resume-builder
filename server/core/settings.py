@@ -109,21 +109,10 @@ DATABASES = {
     )
 }
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]
-if not DEBUG:
-    _cors_extra = [h.strip() for h in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if h.strip()]
-    CORS_ALLOWED_ORIGINS += _cors_extra
-
-# Allow all Vercel preview & production frontend URLs via regex
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://.*\.vercel\.app$',
-]
-
+# CORS — allow all origins (safe for a resume builder; auth is token-based)
+# The @vercel/python serverless runtime interferes with preflight OPTIONS header
+# processing when using origin lists or regexes, so we use allow-all instead.
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Trust Vercel origins for CSRF (required for login/register POST requests)
