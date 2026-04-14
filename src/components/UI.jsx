@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { uid } from '../utils.js';
+import { CheckCircle2, ChevronLeft, ChevronRight, Download, X, Trash2, CheckCheck, Info, AlertCircle } from 'lucide-react';
 
 // ── Chip Input ───────────────────────────────────────────────────
 export function ChipInput({ chips = [], onChange, placeholder = 'Type and press Enter...', matchedSkills = [] }) {
@@ -15,7 +16,9 @@ export function ChipInput({ chips = [], onChange, placeholder = 'Type and press 
       {chips.map(c => (
         <span key={c} className={`chip${matchedSkills.includes(c.toLowerCase()) ? ' matched' : ''}`}>
           {c}
-          <button className="chip-del" onClick={() => remove(c)}>×</button>
+          <button className="chip-del" onClick={() => remove(c)} title="Remove">
+            <X size={10} strokeWidth={2.5} />
+          </button>
         </span>
       ))}
       <input
@@ -39,7 +42,8 @@ export function ToastContainer({ toasts }) {
     <div className="toast-container">
       {toasts.map(t => (
         <div key={t.id} className={`toast ${t.type}`}>
-          {t.type === 'success' ? '✓' : t.type === 'error' ? '✕' : 'ℹ'} {t.message}
+          {t.type === 'success' ? <CheckCircle2 size={15} strokeWidth={2} /> : t.type === 'error' ? <AlertCircle size={15} strokeWidth={2} /> : <Info size={15} strokeWidth={2} />}
+          {t.message}
         </div>
       ))}
     </div>
@@ -54,7 +58,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 600 }) {
       <div className="modal" style={{ maxWidth }}>
         <div className="modal-header">
           <div className="modal-title">{title}</div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button className="modal-close" onClick={onClose}><X size={16} strokeWidth={2} /></button>
         </div>
         {children}
       </div>
@@ -68,12 +72,18 @@ export function SectionNavFooter({ sections, activeId, onNavigate, onPrint }) {
   return (
     <div className="section-nav-footer">
       {idx > 0
-        ? <button className="btn btn-secondary" onClick={() => onNavigate(sections[idx - 1].id)}>← Previous</button>
+        ? <button className="btn btn-secondary" onClick={() => onNavigate(sections[idx - 1].id)} style={{ gap: 5 }}>
+            <ChevronLeft size={15} /> Previous
+          </button>
         : <div />
       }
       {idx < sections.length - 1
-        ? <button className="btn btn-primary" onClick={() => onNavigate(sections[idx + 1].id)}>Next Section →</button>
-        : <button className="btn btn-primary" onClick={onPrint}>⬇ Download PDF</button>
+        ? <button className="btn btn-primary" onClick={() => onNavigate(sections[idx + 1].id)} style={{ gap: 5 }}>
+            Next Section <ChevronRight size={15} />
+          </button>
+        : <button className="btn btn-primary" onClick={onPrint} style={{ gap: 5 }}>
+            <Download size={15} /> Download PDF
+          </button>
       }
     </div>
   );
@@ -82,6 +92,8 @@ export function SectionNavFooter({ sections, activeId, onNavigate, onPrint }) {
 // ── Delete card button ───────────────────────────────────────────
 export function DelBtn({ onClick }) {
   return (
-    <button className="card-del-btn" onClick={onClick} title="Remove">✕</button>
+    <button className="card-del-btn" onClick={onClick} title="Remove">
+      <Trash2 size={14} strokeWidth={1.8} />
+    </button>
   );
 }

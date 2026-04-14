@@ -37,11 +37,11 @@ export default function AuthModal({ onClose, onSuccess }) {
         <div style={{
           flex: '0.8', background: 'linear-gradient(135deg, var(--accent), var(--purple))',
           padding: 40, color: 'white', display: 'flex', flexDirection: 'column',
-          justifyContent: 'center', '@media(max-width: 600px)': { display: 'none' }
+          justifyContent: 'center',
         }} className="auth-brand-side">
-          <div className="brand-icon" style={{ width: 48, height: 48, fontSize: '1.6rem', marginBottom: 20, boxShadow: 'none', background: 'rgba(255,255,255,0.2)' }}>C</div>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, lineHeight: 1.2, marginBottom: 12 }}>Build your future with CraftCV.</h2>
-          <p style={{ fontSize: '.9rem', opacity: 0.9, lineHeight: 1.5 }}>Join thousands of professionals creating ATS-optimized resumes that actually land interviews.</p>
+          <div className="brand-icon" style={{ width: 48, height: 48, fontSize: '1.3rem', marginBottom: 20, boxShadow: 'none', background: 'rgba(255,255,255,0.18)', borderRadius: 14 }}>C</div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 900, lineHeight: 1.2, marginBottom: 12, fontFamily: 'Outfit, sans-serif', letterSpacing: '-.04em' }}>Build your future with CraftCV.</h2>
+          <p style={{ fontSize: '.87rem', opacity: 0.88, lineHeight: 1.6, fontWeight: 400 }}>Join thousands of professionals creating ATS-optimized resumes that actually land interviews.</p>
         </div>
 
         {/* Form Side */}

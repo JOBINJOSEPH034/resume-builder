@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { extractKeywords, matchKeywords, parseResumeText } from '../utils.js';
 import { useAuth } from '../AuthContext.jsx';
+import { FileUp, Target, Sparkles, Lock } from 'lucide-react';
 
 // ── Resume Import Panel ──────────────────────────────────────────
 export function ImportPanel({ onImport, onImportFile, onToast }) {
@@ -89,7 +90,7 @@ export function ImportPanel({ onImport, onImportFile, onToast }) {
   return (
     <div>
       <div className="section-header">
-        <div className="section-title">📂 Import Existing Resume</div>
+        <div className="section-title">Import Existing Resume</div>
         <div className="section-desc">Upload your current resume to auto-fill the form fields. We'll extract the data and you can refine it.</div>
       </div>
 
@@ -101,7 +102,7 @@ export function ImportPanel({ onImport, onImportFile, onToast }) {
           onDragLeave={() => setDrag(false)}
           onDrop={onDrop}
         >
-          <div className="import-zone-icon">📄</div>
+          <div className="import-zone-icon"><FileUp size={40} strokeWidth={1.4} /></div>
           <div className="import-zone-title">{drag ? 'Drop your resume here!' : 'Drop your resume here or click to browse'}</div>
           <div className="import-zone-sub">We'll automatically extract your information</div>
           <div className="import-formats">
@@ -209,7 +210,7 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
   return (
     <div>
       <div className="section-header">
-        <div className="section-title">🎯 Job Description Analyzer</div>
+        <div className="section-title">Job Description Analyzer</div>
         <div className="section-desc">Paste the job description below. We extract keywords and show how well your resume matches.</div>
       </div>
 
@@ -279,7 +280,7 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
                   onClick={handleOptimize}
                   style={{ justifyContent: 'center', background: 'linear-gradient(90deg, var(--accent), var(--purple))', border: 'none' }}
                 >
-                  {isOptimizing ? '✨ Optimizing...' : '✨ Auto-Optimize with AI'}
+                  {isOptimizing ? <><Sparkles size={14} /> Optimizing...</> : <><Sparkles size={14} /> AI Auto-Optimize</>}
                 </button>
                 {aiError && <div style={{ color: 'var(--red)', fontSize: '.75rem', marginTop: 8, textAlign: 'center' }}>⚠️ {aiError}</div>}
               </div>
@@ -300,14 +301,16 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
       {showUpgradeModal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowUpgradeModal(false)}>
           <div className="modal" style={{ maxWidth: 440, textAlign: 'center' }}>
-            <div style={{ fontSize: '3rem', margin: '10px 0 20px' }}>🚀</div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 10 }}>Premium AI Features</h3>
+            <div style={{ fontSize: '3rem', margin: '10px 0 20px', display: 'flex', justifyContent: 'center' }}>
+              <Lock size={48} strokeWidth={1.4} color="var(--purple)" />
+            </div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 10, fontFamily: 'Outfit, sans-serif', letterSpacing: '-.03em' }}>Premium AI Feature</h3>
             <p style={{ color: 'var(--muted)', fontSize: '.9rem', lineHeight: 1.5, marginBottom: 24 }}>
               AI Optimization is currently available exclusively during active promotional periods or via ResumeForge Pro.
             </p>
             
             <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px', marginBottom: 24 }}>
-              <div style={{ fontWeight: 800, color: 'var(--ink)' }}>ResumeForge Pro</div>
+              <div style={{ fontWeight: 800, color: 'var(--ink)', fontFamily: 'Outfit, sans-serif' }}>CraftCV Pro</div>
               <div style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.4rem', margin: '4px 0' }}>₹499<span style={{ fontSize: '.8rem', color: 'var(--muted)', fontWeight: 600 }}>/mo</span></div>
               <div style={{ color: 'var(--ink2)', fontSize: '.8rem', fontWeight: 600, marginTop: 4 }}>
                 Payments Integration Coming Soon!

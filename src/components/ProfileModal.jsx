@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../AuthContext.jsx';
+import { Crown, Download, Tag, LogOut, X, User, ChevronRight, Star } from 'lucide-react';
 
 export default function ProfileModal({ onClose, showToast }) {
   const { user, applyPromoCode, logout, upgradeToPro } = useAuth();
@@ -8,6 +9,9 @@ export default function ProfileModal({ onClose, showToast }) {
   const [error, setError] = useState('');
 
   const isPro = user?.plan === 'pro';
+  const downloadsUsed = user?.downloads_used || 0;
+  const downloadLimit = 2;
+  const downloadPct = Math.min((downloadsUsed / downloadLimit) * 100, 100);
 
   const handleApplyPromo = async (e) => {
     e.preventDefault();
@@ -16,7 +20,7 @@ export default function ProfileModal({ onClose, showToast }) {
     setLoading(true);
     try {
       const result = await applyPromoCode(promoCode.trim());
-      showToast(result.message || 'Promo code applied successfully!', 'success');
+      showToast(result.message || 'Promo code applied!', 'success');
       setPromoCode('');
     } catch (err) {
       setError(err.message || 'Invalid or expired promo code');
@@ -33,84 +37,139 @@ export default function ProfileModal({ onClose, showToast }) {
 
   if (!user) return null;
 
+  const initials = user.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
+
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()} style={{ backdropFilter: 'blur(3px)' }}>
-      <div className="modal" style={{ maxWidth: 500, width: '90%', padding: '32px' }}>
-        
+    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()} style={{ backdropFilter: 'blur(6px)' }}>
+      <div className="modal" style={{ maxWidth: 480, width: '92%', padding: '32px' }}>
+
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--ink)' }}>Your Profile</div>
-          <button className="modal-close" onClick={onClose} style={{ background: 'var(--surface2)' }}>✕</button>
-        </div>
-
-        {/* User Info */}
-        <div style={{ background: 'var(--surface2)', borderRadius: 12, padding: 20, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 24, background: 'var(--accent)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
-            {user.name.charAt(0).toUpperCase()}
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
           <div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 2 }}>{user.name}</div>
-            <div style={{ fontSize: '.85rem', color: 'var(--muted)' }}>{user.email}</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.04em', fontFamily: 'Outfit, sans-serif' }}>Account</div>
+            <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: 2 }}>Manage your profile & subscription</div>
           </div>
+          <button className="modal-close" onClick={onClose}><X size={16} strokeWidth={2} /></button>
         </div>
 
-        {/* Plan Details */}
-        <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+        {/* User Card */}
+        <div style={{
+          background: 'linear-gradient(135deg, var(--accent-light), var(--purple-light))',
+          border: '1px solid var(--accent-mid)',
+          borderRadius: 14, padding: '18px 20px', marginBottom: 20,
+          display: 'flex', alignItems: 'center', gap: 16
+        }}>
+          <div style={{
+            width: 50, height: 50, borderRadius: 25,
+            background: 'linear-gradient(135deg, var(--accent), var(--purple))',
+            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '1.1rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif', flexShrink: 0,
+            boxShadow: 'var(--shadow-accent)'
+          }}>
+            {initials}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 2, letterSpacing: '-.02em', fontFamily: 'Outfit, sans-serif', truncate: true }}>{user.name}</div>
+            <div style={{ fontSize: '.8rem', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
+          </div>
+          {isPro && (
+            <div style={{ background: 'linear-gradient(135deg, var(--accent), var(--purple))', color: 'white', fontSize: '.68rem', fontWeight: 800, padding: '4px 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              <Crown size={11} /> PRO
+            </div>
+          )}
+        </div>
+
+        {/* Plan Card */}
+        <div style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div>
-              <div style={{ fontSize: '.8rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>Current Plan</div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 800, color: isPro ? 'var(--green)' : 'var(--ink)' }}>
-                {isPro ? 'Pro Member ⭐' : 'Free Tier'}
+              <div style={{ fontSize: '.68rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>Current Plan</div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-.03em', fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', gap: 7 }}>
+                {isPro ? (
+                  <><Star size={16} fill="var(--yellow)" color="var(--yellow)" /> <span style={{ color: 'var(--yellow)' }}>Pro Member</span></>
+                ) : (
+                  <><User size={15} color="var(--muted)" /> <span style={{ color: 'var(--ink)' }}>Free Tier</span></>
+                )}
               </div>
             </div>
             {!isPro && (
-              <button className="btn btn-sm btn-primary" onClick={async () => {
-                showToast('Upgrading...', 'info');
-                const success = await upgradeToPro();
-                if (success) showToast('Upgraded to Pro! 🎉', 'success');
-              }}>Upgrade</button>
+              <button
+                className="btn btn-sm btn-primary"
+                style={{ gap: 5 }}
+                onClick={async () => {
+                  showToast('Contact us to upgrade to Pro', 'info');
+                }}
+              >
+                <ChevronRight size={13} /> Upgrade
+              </button>
             )}
           </div>
-          
-          <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '.85rem' }}>
-              <span style={{ color: 'var(--ink2)' }}>Resume Downloads</span>
-              <span style={{ fontWeight: 700 }}>
-                {isPro ? 'Unlimited' : `${user.downloads_used || 0} / 2 used`}
+
+          {/* Downloads Usage */}
+          <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isPro ? 0 : 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.82rem', color: 'var(--ink2)', fontWeight: 500 }}>
+                <Download size={14} strokeWidth={2} color="var(--muted)" />
+                PDF Downloads
+              </div>
+              <span style={{ fontWeight: 800, fontSize: '.82rem', color: isPro ? 'var(--green)' : downloadsUsed >= downloadLimit ? 'var(--red)' : 'var(--ink)' }}>
+                {isPro ? 'Unlimited' : `${downloadsUsed} / ${downloadLimit}`}
               </span>
             </div>
-            {/* Progress bar for free users */}
             {!isPro && (
-              <div style={{ marginTop: 8, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(((user.downloads_used || 0) / 2) * 100, 100)}%`, height: '100%', background: (user.downloads_used >= 2) ? 'var(--red)' : 'var(--blue)' }} />
+              <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${downloadPct}%`, height: '100%',
+                  background: downloadsUsed >= downloadLimit
+                    ? 'var(--red)'
+                    : 'linear-gradient(90deg, var(--accent), var(--purple))',
+                  borderRadius: 3, transition: 'width .5s ease'
+                }} />
               </div>
             )}
           </div>
         </div>
 
-        {/* Promo Code Section */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 8 }}>Have a Promo Code?</div>
+        {/* Promo Code */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
+            <Tag size={14} strokeWidth={2} color="var(--accent)" />
+            <div style={{ fontSize: '.88rem', fontWeight: 700, color: 'var(--ink)' }}>Promo Code</div>
+          </div>
           <form onSubmit={handleApplyPromo} style={{ display: 'flex', gap: 8 }}>
-            <input 
-              type="text" 
-              className="f-input" 
-              placeholder="Enter code here" 
+            <input
+              type="text"
+              className="f-input"
+              placeholder="Enter your code..."
               value={promoCode}
               onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-              style={{ padding: '8px 12px', flex: 1, textTransform: 'uppercase' }}
+              style={{ flex: 1, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}
             />
-            <button className="btn btn-primary" type="submit" disabled={loading || !promoCode.trim()} style={{ whiteSpace: 'nowrap' }}>
+            <button className="btn btn-primary" type="submit" disabled={loading || !promoCode.trim()} style={{ gap: 5, whiteSpace: 'nowrap' }}>
               {loading ? '...' : 'Apply'}
             </button>
           </form>
-          {error && <div style={{ fontSize: '.8rem', color: 'var(--red)', marginTop: 8, fontWeight: 600 }}>{error}</div>}
+          {error && (
+            <div style={{ fontSize: '.78rem', color: 'var(--red)', marginTop: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+              ⚠ {error}
+            </div>
+          )}
         </div>
 
-        {/* Action bounds */}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20, textAlign: 'center' }}>
-          <button style={{ background: 'transparent', border: 'none', color: 'var(--red)', cursor: 'pointer', fontWeight: 600, fontSize: '.9rem' }} onClick={handleLogout}>
-            Log out completely
+        {/* Logout */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+          <button
+            onClick={handleLogout}
+            style={{
+              width: '100%', background: 'var(--red-light)', border: '1px solid #fca5a5',
+              color: 'var(--red)', cursor: 'pointer', fontWeight: 700, fontSize: '.85rem',
+              borderRadius: 10, padding: '10px', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: 7, transition: 'all .15s', fontFamily: 'Inter, sans-serif'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--red-light)'; }}
+          >
+            <LogOut size={15} strokeWidth={2} /> Sign Out
           </button>
         </div>
 

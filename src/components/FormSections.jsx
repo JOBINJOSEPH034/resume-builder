@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
 import { uid } from '../utils.js';
 import { ChipInput, DelBtn, SectionNavFooter } from './UI.jsx';
+import { Bot } from 'lucide-react';
 
 const ATSTip = ({ tips }) => (
   <div className="ats-tips">
-    <div className="ats-tips-title">🤖 ATS Tips</div>
+    <div className="ats-tips-title"><Bot size={13} strokeWidth={2} /> ATS Optimization Tips</div>
     {tips.map((t, i) => <div key={i} className="ats-tip">{t}</div>)}
   </div>
 );

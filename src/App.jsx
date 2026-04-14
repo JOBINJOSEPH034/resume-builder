@@ -12,16 +12,32 @@ import { ImportPanel, JobDescSection } from './components/ImportAndJD.jsx';
 import { useAuth } from './AuthContext.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
+import {
+  User, AlignLeft, Briefcase, GraduationCap, Zap, FolderOpen, Award, Globe,
+  FolderInput, Target, Upload, PenLine, Sun, Moon, BarChart2, Eye, Download,
+  LogIn, CheckCircle2, Wrench, ScanSearch, ChevronRight, ChevronLeft, Sparkles,
+} from 'lucide-react';
 
 // A4 dimensions in pixels at 96dpi
 const A4_W_PX = 794;
 const A4_H_PX = 1123;
 
 const ALL_SECTIONS = [
-  { id: 'import', icon: '📂', label: 'Import Resume', special: true },
-  { id: 'jd',     icon: '🎯', label: 'Job Description', special: true },
+  { id: 'import', icon: 'import', label: 'Import Resume', special: true },
+  { id: 'jd',     icon: 'target', label: 'Job Description', special: true },
   ...SECTIONS,
 ];
+
+// Map icon string -> Lucide component
+const ICON_MAP = {
+  'user': User, 'align-left': AlignLeft, 'briefcase': Briefcase,
+  'graduation': GraduationCap, 'zap': Zap, 'folder': FolderOpen,
+  'award': Award, 'globe': Globe, 'import': FolderInput, 'target': Target,
+};
+function NavIcon({ name, size = 16 }) {
+  const Comp = ICON_MAP[name] || Zap;
+  return <Comp size={size} strokeWidth={1.8} />;
+}
 
 export default function App() {
   const [data, setData] = useLocalStorage('rf_resume_v2', initData);
@@ -222,7 +238,7 @@ export default function App() {
           <button className={`ats-score-badge ${scoreClass}`} style={{ cursor: 'pointer' }} onClick={() => setShowAtsModal(true)} title="Click to view detailed ATS Report">
             <div className="score-pulse" style={{ background: scoreColor }} />
             <span>ATS Score: <strong>{atsScore}%</strong></span>
-            {atsScore >= 80 && <span>🎉</span>}
+            {atsScore >= 80 && <Sparkles size={13} />}
           </button>
           {jobDesc.length > 20 && (
             <div style={{ fontSize: '.72rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -234,26 +250,26 @@ export default function App() {
 
         <div className="topbar-actions">
           <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode">
-            {theme === 'dark' ? '☀️' : '🌙'}
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => setActive('import')}>
-            📂 Import
+          <button className="btn btn-sm btn-secondary" onClick={() => setActive('import')} style={{ gap: 5 }}>
+            <FolderInput size={14} /> Import
           </button>
           <button className="btn btn-sm btn-secondary" onClick={handleClear}>
             Clear
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => setShowAtsModal(true)}>
-            📊 ATS Report
+          <button className="btn btn-sm btn-secondary" onClick={() => setShowAtsModal(true)} style={{ gap: 5 }}>
+            <BarChart2 size={14} /> ATS Score
           </button>
-          <button className="btn btn-sm btn-secondary" onClick={() => setShowPreviewModal(true)}>
-            👁 Preview
+          <button className="btn btn-sm btn-secondary" onClick={() => setShowPreviewModal(true)} style={{ gap: 5 }}>
+            <Eye size={14} /> Preview
           </button>
-          <button className="btn btn-sm btn-primary" onClick={handlePrint}>
-            ⬇ Download PDF
+          <button className="btn btn-sm btn-primary" onClick={handlePrint} style={{ gap: 5 }}>
+            <Download size={14} /> Download PDF
           </button>
           {!user ? (
-            <button className="btn btn-sm btn-primary" style={{ background: 'var(--ink)' }} onClick={() => setShowAuthModal(true)}>
-              Login / Sign Up
+            <button className="btn btn-sm btn-primary" onClick={() => setShowAuthModal(true)} style={{ gap: 5 }}>
+              <LogIn size={14} /> Sign In
             </button>
           ) : (
             <button 
@@ -282,8 +298,8 @@ export default function App() {
         <div className="sidebar">
           {/* ── MODE TOGGLE ── */}
           <div style={{ display: 'flex', gap: 4, paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
-             <button onClick={() => setAppMode('BUILDER')} className={`btn btn-sm ${appMode === 'BUILDER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center' }}>Builder 🛠</button>
-             <button onClick={() => { if (importedFile) { setAppMode('ANALYZER'); setAnalyzerTab('edit'); } else { setAppMode('ANALYZER'); setAnalyzerTab('import'); } }} className={`btn btn-sm ${appMode === 'ANALYZER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center' }}>Analyzer 🔍</button>
+             <button onClick={() => setAppMode('BUILDER')} className={`btn btn-sm ${appMode === 'BUILDER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><Wrench size={13} /> Builder</button>
+             <button onClick={() => { if (importedFile) { setAppMode('ANALYZER'); setAnalyzerTab('edit'); } else { setAppMode('ANALYZER'); setAnalyzerTab('import'); } }} className={`btn btn-sm ${appMode === 'ANALYZER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><ScanSearch size={13} /> Analyzer</button>
           </div>
 
           {appMode === 'BUILDER' ? (
@@ -295,7 +311,7 @@ export default function App() {
                   className={`nav-item special-nav${active === s.id ? ' active' : ''}`}
                   onClick={() => setActive(s.id)}
                 >
-                  <span className="nav-icon">{s.icon}</span>
+                  <span className="nav-icon"><NavIcon name={s.icon} /></span>
                   <span className="nav-label">{s.label}</span>
                   {s.id === 'jd' && jobDesc.length > 20 && (
                     <span style={{
@@ -315,10 +331,10 @@ export default function App() {
                   className={`nav-item${active === s.id ? ' active' : ''}`}
                   onClick={() => setActive(s.id)}
                 >
-                  <span className="nav-icon">{s.icon}</span>
+                  <span className="nav-icon"><NavIcon name={s.icon} /></span>
                   <span className="nav-label">{s.label}</span>
                   {isDone(s.id, data)
-                    ? <span className="nav-done">✓</span>
+                    ? <span className="nav-done"><CheckCircle2 size={14} strokeWidth={2} /></span>
                     : active === s.id ? <span className="nav-badge">Edit</span> : null
                   }
                 </button>
@@ -328,13 +344,13 @@ export default function App() {
             <>
               <div className="sidebar-section-label">Analyzer Tools</div>
               <button className={`nav-item special-nav${analyzerTab === 'import' ? ' active' : ''}`} onClick={() => setAnalyzerTab('import')}>
-                <span className="nav-icon">📂</span><span className="nav-label">Upload Resume</span>
+                <span className="nav-icon"><Upload size={15} strokeWidth={1.8} /></span><span className="nav-label">Upload Resume</span>
               </button>
               <button className={`nav-item special-nav${analyzerTab === 'edit' ? ' active' : ''}`} onClick={() => setAnalyzerTab('edit')} disabled={!importedFile}>
-                <span className="nav-icon">✏️</span><span className="nav-label">Edit Resume Text</span>
+                <span className="nav-icon"><PenLine size={15} strokeWidth={1.8} /></span><span className="nav-label">Edit Resume Text</span>
               </button>
               <button className={`nav-item special-nav${analyzerTab === 'jd' ? ' active' : ''}`} onClick={() => setAnalyzerTab('jd')}>
-                <span className="nav-icon">🎯</span><span className="nav-label">Job Description</span>
+                <span className="nav-icon"><Target size={15} strokeWidth={1.8} /></span><span className="nav-label">Job Description</span>
                 {jobDesc.length > 20 && (
                   <span style={{
                     marginLeft: 'auto', fontSize: '.65rem', fontWeight: 700,
@@ -358,7 +374,7 @@ export default function App() {
               {atsScore < 40 ? 'Keep filling sections!'
                 : atsScore < 65 ? 'Looking good, keep going!'
                 : atsScore < 85 ? 'Almost there — add JD keywords!'
-                : '🚀 Excellent resume!'}
+                : 'Excellent resume! Ready to apply.'}
             </div>
           </div>
         </div>
@@ -372,7 +388,7 @@ export default function App() {
                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                  <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                    <div>
-                     <div className="section-title">✏️ Edit Uploaded Resume</div>
+                     <div className="section-title">Edit Uploaded Resume</div>
                      <div className="section-desc">Click anywhere on the resume below to edit. Changes update your ATS Score live.</div>
                    </div>
                    <button

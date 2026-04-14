@@ -12,14 +12,14 @@ export const initData = {
 
 // ── Sections definition ─────────────────────────────────────────
 export const SECTIONS = [
-  { id: 'personal',       icon: '👤', label: 'Personal Info' },
-  { id: 'summary',        icon: '📝', label: 'Profile Summary' },
-  { id: 'experience',     icon: '💼', label: 'Experience' },
-  { id: 'education',      icon: '🎓', label: 'Education' },
-  { id: 'skills',         icon: '⚡', label: 'Skills' },
-  { id: 'projects',       icon: '🚀', label: 'Projects' },
-  { id: 'certifications', icon: '🏅', label: 'Certifications' },
-  { id: 'languages',      icon: '🌐', label: 'Languages' },
+  { id: 'personal',       icon: 'user',        label: 'Personal Info' },
+  { id: 'summary',        icon: 'align-left',  label: 'Profile Summary' },
+  { id: 'experience',     icon: 'briefcase',   label: 'Experience' },
+  { id: 'education',      icon: 'graduation',  label: 'Education' },
+  { id: 'skills',         icon: 'zap',         label: 'Skills' },
+  { id: 'projects',       icon: 'folder',      label: 'Projects' },
+  { id: 'certifications', icon: 'award',       label: 'Certifications' },
+  { id: 'languages',      icon: 'globe',       label: 'Languages' },
 ];
 
 // ── UID ─────────────────────────────────────────────────────────
