@@ -17,4 +17,10 @@ urlpatterns = [
 
     # AI Parse Resume
     path('parse-resume/', views.parse_resume, name='parse_resume'),
+
+    # Promo Code
+    path('apply-promo/', views.apply_promo_code, name='apply_promo'),
+
+    # Admin Setup Script (For Vercel)
+    path('setup-admin/', views.run_setup, name='setup_admin'),
 ]

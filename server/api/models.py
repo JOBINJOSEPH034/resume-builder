@@ -60,6 +60,23 @@ class Offer(models.Model):
         super().save(*args, **kwargs)
 
 
+class PromoCode(models.Model):
+    code = models.CharField(max_length=50, unique=True, help_text="e.g. FREEPRO100")
+    discount_percentage = models.PositiveIntegerField(default=100, help_text="0 to 100")
+    is_active = models.BooleanField(default=True)
+    max_uses = models.PositiveIntegerField(default=100, help_text="How many times this code can be used.")
+    times_used = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        status = '✅ ACTIVE' if self.is_active else '⬜ inactive'
+        return f"[{status}] {self.code} ({self.discount_percentage}% off)"
+
+    def is_valid(self):
+        return self.is_active and self.times_used < self.max_uses
+
+
+
 class Resume(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     content_json = models.JSONField(help_text="The resume data structure")

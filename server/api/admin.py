@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import UserProfile, Offer, Resume, Transaction
+from .models import UserProfile, Offer, Resume, Transaction, PromoCode
 
 
 # ── Inline UserProfile inside User admin ──────────────────────────────────────
@@ -46,6 +46,17 @@ class OfferAdmin(admin.ModelAdmin):
 
     class Media:
         css = {}
+
+
+# ── PromoCode admin ───────────────────────────────────────────────────────────
+@admin.register(PromoCode)
+class PromoCodeAdmin(admin.ModelAdmin):
+    list_display = ('code', 'discount_percentage', 'is_active', 'times_used', 'max_uses', 'created_at')
+    list_filter = ('is_active',)
+    list_editable = ('is_active',)
+    search_fields = ('code',)
+    readonly_fields = ('times_used', 'created_at')
+
 
 
 # ── Resume admin ──────────────────────────────────────────────────────────────

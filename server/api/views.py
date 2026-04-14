@@ -328,3 +328,75 @@ def parse_resume(request):
     except Exception as e:
         logging.error(f"parse_resume error: {e}", exc_info=True)
         return Response({'error': 'An internal error occurred while parsing. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+from django.core.management import call_command
+from .models import PromoCode
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def apply_promo_code(request):
+    """Apply a promo code for 100% off (direct Pro upgrade) or valid discount."""
+    code = request.data.get('code', '').strip().upper()
+    if not code:
+        return Response({'error': 'No promo code provided.'}, status=400)
+
+    try:
+        promo = PromoCode.objects.get(code=code)
+    except PromoCode.DoesNotExist:
+        return Response({'error': 'Invalid promo code.'}, status=400)
+
+    if not promo.is_valid():
+        return Response({'error': 'This promo code is inactive or has reached its usage limit.'}, status=400)
+
+    user = request.user
+
+    # If it's a 100% free promo code, upgrade them instantly
+    if promo.discount_percentage == 100:
+        if hasattr(user, 'profile'):
+            user.profile.plan = 'pro'
+            user.profile.save()
+            promo.times_used += 1
+            promo.save()
+            return Response({
+                'message': 'Promo code applied! You have been upgraded to Pro for free.',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'name': f"{user.first_name} {user.last_name}".strip(),
+                    'plan': 'pro',
+                    'downloads_used': user.profile.downloads_used,
+                }
+            })
+    
+    # If it's a discount percentage
+    return Response({
+        'message': 'Promo code applied successfully!',
+        'discount_percentage': promo.discount_percentage
+    })
+
+@api_view(['GET'])
+def run_setup(request):
+    """
+    Utility endpoint to run migrations and create a superuser on Vercel.
+    IMPORTANT: You should only hit this ONCE securely.
+    """
+    secret = request.GET.get('key')
+    if secret != 'setupcraftcv2026':  # Protection key
+        return Response({'error': 'Forbidden'}, status=403)
+        
+    try:
+        # Run database migrations directly on the remote database
+        call_command('migrate', interactive=False)
+        
+        # Create Superuser if not exists
+        if not User.objects.filter(username='admin').exists():
+            User.objects.create_superuser('admin', 'admin@craftcv.com', 'Adminpass123!')
+            msg = 'Migrations applied and superuser (admin / Adminpass123!) created successfully!'
+        else:
+            msg = 'Migrations applied. Superuser already exists.'
+            
+        return Response({'status': 'success', 'message': msg})
+    except Exception as e:
+        return Response({'status': 'error', 'message': str(e)}, status=500)
+
