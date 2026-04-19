@@ -127,9 +127,9 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'None'
 CSRF_COOKIE_SECURE = True
 
-# Backup CORS setting (CORS is primarily handled by wsgi.py CORSMiddleware)
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# CORS is handled exclusively by core.middleware.CORSMiddleware using an explicit
+# origin allowlist. CORS_ALLOW_ALL_ORIGINS must NOT be set to True as it allows
+# any website to make credentialed cross-origin requests to this API.
 
 
 

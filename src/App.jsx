@@ -6,13 +6,16 @@ import { ToastContainer } from './components/UI.jsx';
 import ResumePreview from './components/ResumePreview.jsx';
 import { PersonalSection, SummarySection, ExperienceSection,
   EducationSection, SkillsSection, ProjectsSection,
-  CertificationsSection, LanguagesSection,
+  CertificationsSection, LanguagesSection, CustomSection
 } from './components/FormSections.jsx';
 import { ImportPanel, JobDescSection } from './components/ImportAndJD.jsx';
 import { useAuth } from './AuthContext.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import ProfileModal from './components/ProfileModal.jsx';
 import WelcomeModal, { hasBeenWelcomed, markWelcomed } from './components/WelcomeModal.jsx';
+import TutorialOverlay from './components/TutorialOverlay.jsx';
+import { hasDoneTutorial } from './components/tutorialStorage.js';
+import { PrivacyPolicyModal, TermsModal } from './components/LegalModals.jsx';
 import {
   User, AlignLeft, Briefcase, GraduationCap, Zap, FolderOpen, Award, Globe,
   FolderInput, Target, Upload, PenLine, Sun, Moon, BarChart2, Eye, Download,
@@ -54,23 +57,59 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [welcomeName, setWelcomeName] = useState('');
+  const [showTutorial, setShowTutorial] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [importedFile, setImportedFile] = useState(null);
   const [importedText, setImportedText] = useState('');
   const [importedHtml, setImportedHtml] = useState('');
   const [appMode, setAppMode] = useState('BUILDER'); // 'BUILDER' | 'ANALYZER'
   const editRef = useRef(null);
   const [analyzerTab, setAnalyzerTab] = useState('import'); // 'import' | 'edit' | 'jd'
+  const [mobileTutStep, setMobileTutStep] = useLocalStorage('craftcv_mobile_tut_seq', 1); // 1 = step1, 2 = step2, 0 = done
   const [showSplash, setShowSplash] = useState(true);
   const { toasts, show: showToast } = useToast();
   const { theme, toggle: toggleTheme } = useTheme();
-  const { user, offer, logout, upgradeToPro } = useAuth();
+  const { user, offer, logout, upgradeToPro, trackDownload, trackAts } = useAuth();
 
   // Splash screen timer
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // ── SESSION ISOLATION: reset ALL resume/session state on logout ──
+  // This fires whenever `user` becomes null (logout). It ensures that
+  // no data from a previous user's session leaks into the next session.
+  useEffect(() => {
+    if (!user) {
+      setData(initData);
+      setJobDesc('');
+      setImportedFile(null);
+      setImportedText('');
+      setImportedHtml('');
+      setAppMode('BUILDER');
+      setAnalyzerTab('import');
+      setMatchedKeywords([]);
+    }
+  }, [user]);
+
+  // ── Global Escape key: close any open modal ──
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== 'Escape') return;
+      if (showAtsModal)     { setShowAtsModal(false);     return; }
+      if (showPreviewModal) { setShowPreviewModal(false); return; }
+      if (showAuthModal)    { setShowAuthModal(false);    return; }
+      if (showProfileModal) { setShowProfileModal(false); return; }
+      if (showPrivacy)      { setShowPrivacy(false);      return; }
+      if (showTerms)        { setShowTerms(false);        return; }
+      if (showMobileSidebar){ setShowMobileSidebar(false);return; }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showAtsModal, showPreviewModal, showAuthModal, showProfileModal, showPrivacy, showTerms, showMobileSidebar]);
 
   // ATS score = base content score + keyword match bonus
   const analyzerReport = appMode === 'ANALYZER' ? analyzeResumeText(importedText, jobDesc) : null;
@@ -172,16 +211,58 @@ export default function App() {
     }
   };
 
-  // Print always uses the hidden #print-area (full scale, no transform)
-  const handlePrint = () => {
+  // Print — track download first, enforce free plan limit
+  const handlePrint = async () => {
     setShowPreviewModal(false);
+    const result = await trackDownload();
+    if (result.allowed === false) {
+      showToast(
+        result.error || `You've used all your free downloads. Upgrade to Pro for unlimited PDF downloads.`,
+        'error',
+        5000
+      );
+      return;
+    }
+    if (result.downloads_used !== undefined && result.download_limit) {
+      const remaining = result.download_limit - result.downloads_used;
+      if (remaining === 0) {
+        showToast('Last free download used! Upgrade to Pro for unlimited PDFs.', 'info', 4000);
+      }
+    }
     setTimeout(() => window.print(), 100);
+  };
+
+  const handleOpenAts = async () => {
+    if (user?.plan === 'pro') {
+      setShowAtsModal(true);
+      return;
+    }
+    if (user) {
+      try {
+        const res = await trackAts();
+        if (res.allowed) {
+          setShowAtsModal(true);
+          const remaining = res.ats_report_limit - res.ats_reports_used;
+          if (remaining >= 0) {
+            showToast(`ATS Report unlocked (${remaining} free uses remaining)`, 'info', 4000);
+          }
+        } else {
+          showToast(res.error || 'ATS Report limit reached. Upgrade to Pro.', 'error');
+        }
+      } catch { 
+        showToast('Error tracking ATS usage', 'error'); 
+        setShowAtsModal(true); // fail open
+      }
+    } else {
+      showToast('Please log in or register to view your ATS Report', 'info');
+      setShowAuth(true);
+    }
   };
 
   const sectionProps = { data, onChange: setData, sections: SECTIONS, onNavigate: setActive, onPrint: () => setShowPreviewModal(true) };
   const sectionMap = {
     import: <ImportPanel onImport={handleImport} onImportFile={handleImportFile} onToast={showToast} />,
-    jd: <JobDescSection jobDesc={jobDesc} setJobDesc={setJobDesc} data={data} onKeywordsChange={handleKeywordsChange} />,
+    jd: <JobDescSection jobDesc={jobDesc} setJobDesc={setJobDesc} data={data} onKeywordsChange={handleKeywordsChange} onImport={handleImport} onToast={showToast} />,
     personal:       <PersonalSection {...sectionProps} />,
     summary:        <SummarySection {...sectionProps} />,
     experience:     <ExperienceSection {...sectionProps} />,
@@ -190,6 +271,7 @@ export default function App() {
     projects:       <ProjectsSection {...sectionProps} />,
     certifications: <CertificationsSection {...sectionProps} />,
     languages:      <LanguagesSection {...sectionProps} />,
+    custom:         <CustomSection {...sectionProps} />,
   };
 
   const templates = ['classic', 'modern', 'minimal', 'professional', 'executive', 'creative', 'tech', 'startup', 'elegant'];
@@ -232,9 +314,60 @@ export default function App() {
       {/* ── TOP BAR ── */}
       <div className="topbar">
         {/* Hamburger - mobile only */}
-        <button className="mobile-menu-btn" onClick={() => setShowMobileSidebar(v => !v)} title="Menu">
-          <Menu size={20} strokeWidth={1.8} />
-        </button>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <button className="mobile-menu-btn" onClick={() => { setShowMobileSidebar(v => !v); setMobileTutStep(0); }} title="Menu">
+            <Menu size={20} strokeWidth={1.8} />
+          </button>
+          {/* Multi-step Onboarding Tooltip for first-time mobile users */}
+          {mobileTutStep > 0 && !showMobileSidebar && (
+            <div className="mobile-tutorial-tooltip" style={{
+              position: 'absolute', top: 'calc(100% + 14px)', left: 0, width: 280, 
+              background: 'linear-gradient(135deg, var(--accent), var(--purple))',
+              color: 'white', padding: '16px 18px', borderRadius: 14, 
+              boxShadow: 'var(--shadow-xl)', zIndex: 1000, 
+              textAlign: 'left', cursor: 'default'
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ position: 'absolute', top: -6, left: 14, width: 14, height: 14, background: 'var(--accent)', transform: 'rotate(45deg)', borderRadius: 2 }} />
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: '.9rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
+                  {mobileTutStep === 1 ? '1. Welcome to CraftCV!' : '2. Application Modes'}
+                </span>
+                <X size={15} style={{ cursor: 'pointer', opacity: 0.8 }} onClick={(e) => { e.stopPropagation(); setMobileTutStep(0); }} />
+              </div>
+              
+              <p style={{ margin: '0 0 16px', fontSize: '.8rem', lineHeight: 1.5, opacity: 0.95, fontWeight: 400 }}>
+                {mobileTutStep === 1 ? (
+                  <>Tap this <strong>3-line Menu</strong> anytime to access your layout options, resume builder sections, and PDF download.</>
+                ) : (
+                  <>Inside the menu, toggle between <strong>Builder</strong> mode (create from scratch) and <strong>Analyzer</strong> mode (score an imported resume).</>
+                )}
+              </p>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: 3, background: mobileTutStep === 1 ? 'white' : 'rgba(255,255,255,0.3)' }} />
+                  <div style={{ width: 6, height: 6, borderRadius: 3, background: mobileTutStep === 2 ? 'white' : 'rgba(255,255,255,0.3)' }} />
+                </div>
+                
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {mobileTutStep === 1 ? (
+                    <>
+                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(0); }} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '.75rem', cursor: 'pointer', fontWeight: 600 }}>Skip</button>
+                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(2); }} style={{ background: 'white', border: 'none', color: 'var(--accent)', padding: '6px 14px', borderRadius: 8, fontSize: '.75rem', fontWeight: 800, cursor: 'pointer' }}>Next</button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(1); }} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '.75rem', cursor: 'pointer', fontWeight: 600 }}>Back</button>
+                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(0); }} style={{ background: 'white', border: 'none', color: 'var(--accent)', padding: '6px 14px', borderRadius: 8, fontSize: '.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={13} strokeWidth={3} /> Got it!</button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          )}
+        </div>
 
         <div className="topbar-brand">
           <div className="brand-icon">C</div>
@@ -244,10 +377,10 @@ export default function App() {
           </div>
         </div>
 
-        <div className="topbar-center">
-          <button className={`ats-score-badge ${scoreClass}`} style={{ cursor: 'pointer' }} onClick={() => setShowAtsModal(true)} title="Click to view detailed ATS Report">
+        <div className="topbar-center" id="tut-ats-score">
+          <button className={`ats-score-badge ${scoreClass}`} style={{ cursor: 'pointer' }} onClick={handleOpenAts} title="Click to view detailed ATS Report">
             <div className="score-pulse" style={{ background: scoreColor }} />
-            <span>ATS Score: <strong>{atsScore}%</strong></span>
+            <span>ATS Report: <strong>{atsScore}%</strong></span>
             {atsScore >= 80 && <Sparkles size={13} />}
           </button>
           {jobDesc.length > 20 && (
@@ -259,22 +392,20 @@ export default function App() {
         </div>
 
         <div className="topbar-actions">
-          <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode">
+          <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode" aria-label="Toggle dark mode">
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
           <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setActive('import')} style={{ gap: 5 }}>
             <FolderInput size={14} /> Import
           </button>
-          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={handleClear}>
-            Clear
-          </button>
-          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setShowAtsModal(true)} style={{ gap: 5 }}>
-            <BarChart2 size={14} /> ATS Score
+          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={handleClear}>Clear</button>
+          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={handleOpenAts} style={{ gap: 5 }}>
+            <BarChart2 size={14} /> ATS Report
           </button>
           <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setShowPreviewModal(true)} style={{ gap: 5 }}>
             <Eye size={14} /> Preview
           </button>
-          <button className="btn btn-sm btn-primary" onClick={handlePrint} style={{ gap: 5 }}>
+          <button id="tut-download" className="btn btn-sm btn-primary" onClick={handlePrint} style={{ gap: 5 }}>
             <Download size={14} /> <span className="topbar-hide-xs">Download PDF</span>
           </button>
           {!user ? (
@@ -285,9 +416,10 @@ export default function App() {
             <button
               className="profile-pill"
               onClick={() => setShowProfileModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 8px 4px 12px', background: 'var(--surface2)', borderRadius: 20, border: '1px solid var(--border)', cursor: 'pointer' }}
             >
-              <span className="profile-pill-name">{user.name?.split(' ')[0]}</span>
-              <span className="profile-pill-icon"><Settings size={13} strokeWidth={2} /></span>
+              <span className="profile-pill-name" style={{ fontSize: '.8rem', fontWeight: 600 }}>{user.name?.split(' ')[0]}</span>
+              <span className="profile-pill-icon" style={{ background: 'var(--border)', borderRadius: '50%', padding: 4 }}><User size={13} strokeWidth={2.5} /></span>
             </button>
           )}
         </div>
@@ -316,21 +448,44 @@ export default function App() {
               </div>
               {/* same sidebar content injected here */}
               <div style={{ padding: '10px 10px', overflowY: 'auto', flex: 1 }}>
-                <div className="sidebar-section-label">Tools</div>
-                {ALL_SECTIONS.filter(s => s.special).map(s => (
-                  <button key={s.id} className={`nav-item special-nav${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
-                    <span className="nav-icon"><NavIcon name={s.icon} /></span>
-                    <span className="nav-label">{s.label}</span>
-                  </button>
-                ))}
-                <div className="sidebar-section-label">Resume Sections</div>
-                {SECTIONS.map(s => (
-                  <button key={s.id} className={`nav-item${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
-                    <span className="nav-icon"><NavIcon name={s.icon} /></span>
-                    <span className="nav-label">{s.label}</span>
-                    {isDone(s.id, data) ? <span className="nav-done"><CheckCircle2 size={14} strokeWidth={2} /></span> : null}
-                  </button>
-                ))}
+                {/* ── MODE TOGGLE ── */}
+                <div style={{ display: 'flex', gap: 4, paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
+                   <button onClick={() => setAppMode('BUILDER')} className={`btn btn-sm ${appMode === 'BUILDER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><Wrench size={13} /> Builder</button>
+                   <button onClick={() => { if (importedFile) { setAppMode('ANALYZER'); setAnalyzerTab('edit'); } else { setAppMode('ANALYZER'); setAnalyzerTab('import'); } }} className={`btn btn-sm ${appMode === 'ANALYZER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><ScanSearch size={13} /> Analyzer</button>
+                </div>
+
+                {appMode === 'BUILDER' ? (
+                  <>
+                    <div className="sidebar-section-label">Tools</div>
+                    {ALL_SECTIONS.filter(s => s.special).map(s => (
+                      <button key={s.id} className={`nav-item special-nav${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
+                        <span className="nav-icon"><NavIcon name={s.icon} /></span>
+                        <span className="nav-label">{s.label}</span>
+                      </button>
+                    ))}
+                    <div className="sidebar-section-label">Resume Sections</div>
+                    {SECTIONS.map(s => (
+                      <button key={s.id} className={`nav-item${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
+                        <span className="nav-icon"><NavIcon name={s.icon} /></span>
+                        <span className="nav-label">{s.label}</span>
+                        {isDone(s.id, data) ? <span className="nav-done"><CheckCircle2 size={14} strokeWidth={2} /></span> : null}
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <div className="sidebar-section-label">Analyzer Tools</div>
+                    <button className={`nav-item special-nav${analyzerTab === 'import' ? ' active' : ''}`} onClick={() => { setAnalyzerTab('import'); setShowMobileSidebar(false); }}>
+                      <span className="nav-icon"><Upload size={15} strokeWidth={1.8} /></span><span className="nav-label">Upload Resume</span>
+                    </button>
+                    <button className={`nav-item special-nav${analyzerTab === 'edit' ? ' active' : ''}`} onClick={() => { setAnalyzerTab('edit'); setShowMobileSidebar(false); }} disabled={!importedFile}>
+                      <span className="nav-icon"><PenLine size={15} strokeWidth={1.8} /></span><span className="nav-label">Edit Resume Text</span>
+                    </button>
+                    <button className={`nav-item special-nav${analyzerTab === 'jd' ? ' active' : ''}`} onClick={() => { setAnalyzerTab('jd'); setShowMobileSidebar(false); }}>
+                      <span className="nav-icon"><Target size={15} strokeWidth={1.8} /></span><span className="nav-label">Job Description</span>
+                    </button>
+                  </>
+                )}
                 <div style={{ padding: '16px 10px 4px', borderTop: '1px solid var(--border)', marginTop: 12 }}>
                   <button className="btn btn-primary w-full" onClick={() => { handlePrint(); setShowMobileSidebar(false); }} style={{ justifyContent: 'center', gap: 6 }}>
                     <Download size={14} /> Download PDF
@@ -347,7 +502,7 @@ export default function App() {
         {/* ── SIDEBAR ── */}
         <div className="sidebar">
           {/* ── MODE TOGGLE ── */}
-          <div style={{ display: 'flex', gap: 4, paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
+          <div id="tut-mode-toggle" style={{ display: 'flex', gap: 4, paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
              <button onClick={() => setAppMode('BUILDER')} className={`btn btn-sm ${appMode === 'BUILDER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><Wrench size={13} /> Builder</button>
              <button onClick={() => { if (importedFile) { setAppMode('ANALYZER'); setAnalyzerTab('edit'); } else { setAppMode('ANALYZER'); setAnalyzerTab('import'); } }} className={`btn btn-sm ${appMode === 'ANALYZER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><ScanSearch size={13} /> Analyzer</button>
           </div>
@@ -374,7 +529,7 @@ export default function App() {
                 </button>
               ))}
 
-              <div className="sidebar-section-label">Resume Sections</div>
+              <div id="tut-sidebar-nav" className="sidebar-section-label">Resume Sections</div>
               {SECTIONS.map(s => (
                 <button
                   key={s.id}
@@ -399,7 +554,7 @@ export default function App() {
               <button className={`nav-item special-nav${analyzerTab === 'edit' ? ' active' : ''}`} onClick={() => setAnalyzerTab('edit')} disabled={!importedFile}>
                 <span className="nav-icon"><PenLine size={15} strokeWidth={1.8} /></span><span className="nav-label">Edit Resume Text</span>
               </button>
-              <button className={`nav-item special-nav${analyzerTab === 'jd' ? ' active' : ''}`} onClick={() => setAnalyzerTab('jd')}>
+              <button id="tut-jd-section" className={`nav-item special-nav${analyzerTab === 'jd' ? ' active' : ''}`} onClick={() => setAnalyzerTab('jd')}>
                 <span className="nav-icon"><Target size={15} strokeWidth={1.8} /></span><span className="nav-label">Job Description</span>
                 {jobDesc.length > 20 && (
                   <span style={{
@@ -414,7 +569,7 @@ export default function App() {
           )}
 
           {/* Strength meter */}
-          <div className="sidebar-strength" style={{ cursor: 'pointer' }} onClick={() => setShowAtsModal(true)} title="View Detailed ATS Report">
+          <div className="sidebar-strength" style={{ cursor: 'pointer' }} onClick={handleOpenAts} title="View Detailed ATS Report">
             <div className="strength-label">{appMode === 'ANALYZER' ? 'Uploaded Resume Strength' : 'Resume Strength'}</div>
             <div className="strength-bar-bg">
               <div className="strength-bar-fill" style={{ width: `${atsScore}%` }} />
@@ -473,7 +628,7 @@ export default function App() {
                  />
                </div>
              ) : (
-               <JobDescSection jobDesc={jobDesc} setJobDesc={setJobDesc} data={data} onKeywordsChange={handleKeywordsChange} text={importedText} />
+               <JobDescSection jobDesc={jobDesc} setJobDesc={setJobDesc} data={data} onKeywordsChange={handleKeywordsChange} text={importedText} onImport={handleImport} onToast={showToast} />
              )
           ) : (
              sectionMap[active]
@@ -520,17 +675,19 @@ export default function App() {
 
       {/* ── FOOTER ── */}
       <div style={{
-        height: 28, flexShrink: 0,
+        height: 32, flexShrink: 0,
         background: 'var(--surface)',
         borderTop: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 6, fontSize: '.67rem', color: 'var(--muted)',
+        gap: 8, fontSize: '.67rem', color: 'var(--muted)', flexWrap: 'wrap', padding: '0 12px',
       }}>
         <span>© {new Date().getFullYear()} CraftCV</span>
         <span style={{ opacity: .4 }}>·</span>
         <span>Powered by <strong style={{ color: 'var(--ink2)', fontWeight: 700 }}>Jobin Joseph</strong></span>
         <span style={{ opacity: .4 }}>·</span>
-        <span>ATS-Optimized Resume Builder</span>
+        <button onClick={() => setShowPrivacy(true)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 'inherit', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}>Privacy</button>
+        <span style={{ opacity: .4 }}>·</span>
+        <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 'inherit', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}>Terms</button>
       </div>
 
       {/* ── ATS REPORT MODAL ── */}
@@ -574,7 +731,7 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20, position: 'relative' }}>
                 <div style={{ fontSize: '.85rem', fontWeight: 800, color: 'var(--ink)', marginBottom: 4 }}>Category Breakdown</div>
                 
-                <div className={user?.plan !== 'pro' ? 'premium-blur' : ''} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {analyzerReport.checks.map((check, i) => (
                     <div key={i} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '10px 14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -597,28 +754,6 @@ export default function App() {
                   ))}
                 </div>
 
-                {user?.plan !== 'pro' && (
-                  <div className="premium-overlay">
-                    <div className="premium-lock-card">
-                      <div style={{ fontSize: '2rem', marginBottom: 8 }}>🔒</div>
-                      <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: 'var(--ink)', marginBottom: 6 }}>Detailed Analysis Locked</h3>
-                      <p style={{ fontSize: '.85rem', color: 'var(--muted)', marginBottom: 16, lineHeight: 1.5 }}>
-                        Upgrade to <strong>CraftCV Pro</strong> to see exactly which keywords, formatting rules, and sections are hurting your ATS score.
-                      </p>
-                      <button className="btn btn-primary" onClick={async () => {
-                        const loadingToastId = showToast('Upgrading...', 'info');
-                        const success = await upgradeToPro();
-                        if (success) {
-                          showToast('You are now a Pro member! 🎉', 'success');
-                        } else {
-                          showToast('Upgrade failed. Please try again.', 'error');
-                        }
-                      }}>
-                        ⭐ Upgrade to Pro — ₹149/mo
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
@@ -765,11 +900,26 @@ export default function App() {
         <AuthModal 
           onClose={() => setShowAuthModal(false)} 
           onSuccess={(tab, userName) => {
-            if (tab === 'register' && !hasBeenWelcomed()) {
-              setWelcomeName(userName || user?.name || '');
-              setShowWelcome(true);
+            setShowAuthModal(false);
+
+            // ALWAYS wipe all session state on every login/register.
+            // This prevents data from a previous user's session leaking
+            // into the newly authenticated user's view.
+            setData(initData);
+            setJobDesc('');
+            setImportedFile(null);
+            setImportedText('');
+            setImportedHtml('');
+            setAppMode('BUILDER');
+            setAnalyzerTab('import');
+            setMatchedKeywords([]);
+
+            if (tab === 'register') {
+              // Launch Welcome flow ONLY on new registration
+              setWelcomeName(userName || '');
+              setTimeout(() => setShowWelcome(true), 150);
             } else {
-              showToast(tab === 'login' ? 'Welcome back! 👋' : 'Account created! 🎉', 'success');
+              showToast('Welcome back! 👋', 'success');
             }
           }} 
         />
@@ -784,9 +934,20 @@ export default function App() {
           onClose={() => {
             setShowWelcome(false);
             showToast(`Welcome aboard, ${welcomeName?.split(' ')[0] || 'friend'}! 🎉`, 'success');
+            // Launch tutorial after a short delay so the modal fully unmounts
+            setTimeout(() => setShowTutorial(true), 400);
           }}
         />
       )}
+
+      {/* ── TUTORIAL OVERLAY ── */}
+      {showTutorial && (
+        <TutorialOverlay onDone={() => setShowTutorial(false)} />
+      )}
+
+      {/* ── LEGAL MODALS ── */}
+      {showPrivacy && <PrivacyPolicyModal onClose={() => setShowPrivacy(false)} />}
+      {showTerms   && <TermsModal        onClose={() => setShowTerms(false)} />}
 
       </div>{/* end .app */}
     </>

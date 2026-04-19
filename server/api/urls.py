@@ -7,6 +7,12 @@ urlpatterns = [
     path('auth/login/', views.login_view, name='login'),
     path('auth/logout/', views.logout_view, name='logout'),
     path('auth/me/', views.me, name='me'),
+    path('auth/delete-account/', views.delete_account, name='delete_account'),
+
+    # Downloads & ATS tracking
+    path('track-download/', views.track_download, name='track_download'),
+    path('track-ats/', views.track_ats, name='track_ats'),
+
     path('upgrade/', views.upgrade_plan, name='upgrade_plan'),
 
     # Offer / Free Tier
@@ -20,7 +26,4 @@ urlpatterns = [
 
     # Promo Code
     path('apply-promo/', views.apply_promo_code, name='apply_promo'),
-
-    # Admin Setup Script (For Vercel)
-    path('setup-admin/', views.run_setup, name='setup_admin'),
 ]

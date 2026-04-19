@@ -16,7 +16,7 @@ export function ChipInput({ chips = [], onChange, placeholder = 'Type and press 
       {chips.map(c => (
         <span key={c} className={`chip${matchedSkills.includes(c.toLowerCase()) ? ' matched' : ''}`}>
           {c}
-          <button className="chip-del" onClick={() => remove(c)} title="Remove">
+          <button className="chip-del" onClick={() => remove(c)} title={`Remove ${c}`} aria-label={`Remove ${c}`}>
             <X size={10} strokeWidth={2.5} />
           </button>
         </span>
@@ -39,9 +39,9 @@ export function ChipInput({ chips = [], onChange, placeholder = 'Type and press 
 // ── Toast Container ──────────────────────────────────────────────
 export function ToastContainer({ toasts }) {
   return (
-    <div className="toast-container">
+    <div className="toast-container" role="region" aria-live="polite" aria-label="Notifications">
       {toasts.map(t => (
-        <div key={t.id} className={`toast ${t.type}`}>
+        <div key={t.id} className={`toast ${t.type}`} role="status">
           {t.type === 'success' ? <CheckCircle2 size={15} strokeWidth={2} /> : t.type === 'error' ? <AlertCircle size={15} strokeWidth={2} /> : <Info size={15} strokeWidth={2} />}
           {t.message}
         </div>
@@ -54,11 +54,11 @@ export function ToastContainer({ toasts }) {
 export function Modal({ open, onClose, title, children, maxWidth = 600 }) {
   if (!open) return null;
   return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()} role="dialog" aria-modal="true" aria-label={title}>
       <div className="modal" style={{ maxWidth }}>
         <div className="modal-header">
           <div className="modal-title">{title}</div>
-          <button className="modal-close" onClick={onClose}><X size={16} strokeWidth={2} /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Close dialog"><X size={16} strokeWidth={2} /></button>
         </div>
         {children}
       </div>
@@ -90,9 +90,9 @@ export function SectionNavFooter({ sections, activeId, onNavigate, onPrint }) {
 }
 
 // ── Delete card button ───────────────────────────────────────────
-export function DelBtn({ onClick }) {
+export function DelBtn({ onClick, label = 'Remove' }) {
   return (
-    <button className="card-del-btn" onClick={onClick} title="Remove">
+    <button className="card-del-btn" onClick={onClick} title={label} aria-label={label}>
       <Trash2 size={14} strokeWidth={1.8} />
     </button>
   );

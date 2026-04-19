@@ -5,6 +5,23 @@ const renderContacts = (contacts, sep) => contacts.map((c, i) => (
   <span key={c}>{c}{i < contacts.length - 1 && <span className="r-contact-sep" style={{ margin: '0 6px', opacity: 0.5 }}>{sep}</span>}</span>
 ));
 
+// Helper to render custom content gracefully handling text vs bullets
+const renderCustomContent = (text) => {
+  if (!text) return null;
+  return (
+    <div style={{ marginTop: 4 }}>
+      {text.split('\n').map((line, i) => {
+        const t = line.trim();
+        if (!t) return <div key={i} style={{ height: 4 }} />;
+        const isBullet = /^[•\-\*]/.test(t);
+        return isBullet 
+          ? <div key={i} style={{ display: 'flex', marginBottom: 2 }}><span style={{ marginRight: 6 }}>•</span><span>{t.replace(/^[•\-\*]\s*/, '')}</span></div>
+          : <div key={i} style={{ marginBottom: 4 }}>{t}</div>;
+      })}
+    </div>
+  );
+};
+
 // ── 1. Classic Template ───────────────────────────────────────────
 function ClassicResume({ data }) {
   const p = data.personal;
@@ -84,6 +101,12 @@ function ClassicResume({ data }) {
           ))}
         </div>
       )}
+      {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+        <div className="r-section" key={sec.id}>
+          <div className="r-section-title">{sec.title}</div>
+          <div className="r-custom">{renderCustomContent(sec.content)}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -135,6 +158,12 @@ function ModernResume({ data }) {
             ))}
           </div>
         )}
+        {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+          <div className="r-section" key={sec.id}>
+            <div className="r-section-title" style={{ color: '#1e3c72', borderBottom: '1px solid #ddd' }}>{sec.title}</div>
+            <div style={{ color: '#333' }}>{renderCustomContent(sec.content)}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -185,6 +214,12 @@ function MinimalResume({ data }) {
           ))}
         </div>
       )}
+      {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+        <div className="r-section" key={sec.id}>
+          <h3 style={{ fontSize: '10pt', textTransform: 'uppercase', letterSpacing: '1px', color: '#888', marginBottom: 10 }}>{sec.title}</h3>
+          <div>{renderCustomContent(sec.content)}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -248,6 +283,12 @@ function ProfessionalResume({ data }) {
             ))}
           </div>
         )}
+        {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+          <div key={sec.id} style={{ marginBottom: 20 }}>
+            <h3 style={{ fontSize: '12pt', color: '#2c3e50', borderBottom: '2px solid #2c3e50', paddingBottom: 4, marginBottom: 12 }}>{sec.title}</h3>
+            <div>{renderCustomContent(sec.content)}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -290,6 +331,12 @@ function ExecutiveResume({ data }) {
           ))}
         </div>
       )}
+      {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+        <div key={sec.id} style={{ marginBottom: 20 }}>
+          <h3 style={{ fontSize: '12pt', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', borderTop: '1px solid #eee', borderBottom: '1px solid #eee', padding: '6px 0', margin: '0 0 16px 0' }}>{sec.title}</h3>
+          <div style={{ fontSize: '10pt', lineHeight: 1.6 }}>{renderCustomContent(sec.content)}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -347,6 +394,12 @@ function CreativeResume({ data }) {
           </div>
         )}
       </div>
+      {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+        <div key={sec.id} style={{ marginTop: 24, marginBottom: 12 }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 800, color: '#2f3542', borderBottom: '3px solid #f1f2f6', paddingBottom: 4, marginBottom: 12 }}>{sec.title}</h3>
+          <div style={{ fontSize: '9.5pt', color: '#57606f', lineHeight: 1.6 }}>{renderCustomContent(sec.content)}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -398,6 +451,12 @@ function TechResume({ data }) {
           ))}
         </div>
       )}
+      {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+        <div key={sec.id} style={{ marginBottom: 20 }}>
+          <h3 style={{ fontFamily: 'monospace', fontSize: '11pt', background: '#000', color: '#0f0', display: 'inline-block', padding: '2px 8px', margin: '0 0 12px 0' }}>&gt; {sec.title.toUpperCase()}</h3>
+          <div style={{ fontSize: '9.5pt' }}>{renderCustomContent(sec.content)}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -454,6 +513,12 @@ function StartupResume({ data }) {
           </div>
         )}
       </div>
+      {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+        <div key={sec.id} style={{ marginTop: 24, marginBottom: 16 }}>
+          <h3 style={{ fontSize: '16pt', fontWeight: 800, color: '#7c3aed', marginBottom: 12 }}>{sec.title}.</h3>
+          <div style={{ fontSize: '10.5pt', color: '#4b5563', lineHeight: 1.6 }}>{renderCustomContent(sec.content)}</div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -512,6 +577,12 @@ function ElegantResume({ data }) {
           </div>
         </div>
       )}
+      {data.custom?.some(c => c.title) && data.custom.filter(c => c.title).map(sec => (
+        <div key={sec.id} style={{ marginBottom: 28 }}>
+          <h3 style={{ fontSize: '10pt', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '2px', borderBottom: '1px solid #ccc', paddingBottom: 8, marginBottom: 16 }}>{sec.title}</h3>
+          <div style={{ fontWeight: 300, color: '#444', lineHeight: 1.6 }}>{renderCustomContent(sec.content)}</div>
+        </div>
+      ))}
     </div>
   );
 }

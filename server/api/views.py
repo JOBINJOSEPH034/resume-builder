@@ -9,7 +9,7 @@ from django_ratelimit.decorators import ratelimit
 from django.conf import settings
 import logging
 import os
-from .models import Transaction, Offer, UserProfile
+from .models import Transaction, Offer, UserProfile, PromoCode
 from google import genai
 
 
@@ -78,7 +78,10 @@ def login_view(request):
     if not user:
         return Response({'error': 'Invalid email or password.'}, status=status.HTTP_401_UNAUTHORIZED)
 
-    token, _ = Token.objects.get_or_create(user=user)
+    # Rotate token on every login to prevent session fixation attacks.
+    # Old tokens from previous sessions are invalidated immediately.
+    Token.objects.filter(user=user).delete()
+    token = Token.objects.create(user=user)
 
     response = Response({
         'token': token.key,
@@ -124,7 +127,86 @@ def me(request):
         'name': f"{user.first_name} {user.last_name}".strip() or user.email,
         'plan': user.profile.plan if hasattr(user, 'profile') else 'free',
         'downloads_used': user.profile.downloads_used if hasattr(user, 'profile') else 0,
+        'download_limit': 2,  # free plan limit exposed to frontend
+        'ats_reports_used': user.profile.ats_reports_used if hasattr(user, 'profile') else 0,
+        'ats_report_limit': 3,
     })
+
+
+@ratelimit(key='user_or_ip', rate='20/m', block=True)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def track_download(request):
+    """
+    Called when a user downloads their resume as PDF.
+    Checks the plan limit for free users, increments counter, and returns
+    the updated usage so the frontend can keep the UI in sync.
+    """
+    user = request.user
+    profile = getattr(user, 'profile', None)
+    if not profile:
+        return Response({'error': 'Profile not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    FREE_LIMIT = 2
+
+    # Pro users have unlimited downloads — just acknowledge
+    if profile.plan == 'pro':
+        return Response({
+            'allowed': True,
+            'downloads_used': profile.downloads_used,
+            'download_limit': None,  # unlimited
+        })
+
+    # Free users: enforce limit
+    if profile.downloads_used >= FREE_LIMIT:
+        return Response({
+            'allowed': False,
+            'downloads_used': profile.downloads_used,
+            'download_limit': FREE_LIMIT,
+            'error': f'You have used all {FREE_LIMIT} free downloads. Upgrade to Pro for unlimited PDF downloads.',
+        }, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+    # Increment and save
+    profile.downloads_used += 1
+    profile.save()
+
+    return Response({
+        'allowed': True,
+        'downloads_used': profile.downloads_used,
+        'download_limit': FREE_LIMIT,
+    })
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_account(request):
+    """
+    Permanently deletes the authenticated user's account and ALL associated data.
+    This satisfies the GDPR 'Right to Erasure' requirement.
+    The user must confirm by sending { "confirm": true } in the request body.
+    """
+    confirm = request.data.get('confirm', False)
+    if not confirm:
+        return Response(
+            {'error': 'Confirmation required. Send { "confirm": true } to permanently delete your account.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = request.user
+
+    # Delete the auth token first so the cookie becomes invalid immediately
+    try:
+        user.auth_token.delete()
+    except Exception:
+        pass
+
+    # Deleting the User cascades to UserProfile, Resume, and Transaction
+    # because all those models use on_delete=models.CASCADE
+    user.delete()
+
+    response = Response({'message': 'Account permanently deleted.'}, status=status.HTTP_200_OK)
+    response.delete_cookie('rf_session')
+    return response
 
 
 @api_view(['POST'])
@@ -189,6 +271,7 @@ def get_active_offer(request):
 api_key = os.getenv("GEMINI_API_KEY", "")
 
 
+@ratelimit(key='user_or_ip', rate='10/m', block=True)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def optimize_resume(request):
@@ -215,7 +298,9 @@ def optimize_resume(request):
         if not access_granted:
             if transaction_id:
                 try:
-                    txn = Transaction.objects.get(id=transaction_id)
+                    # SECURITY: Always filter by request.user to prevent IDOR —
+                    # a user must own the transaction they're redeeming.
+                    txn = Transaction.objects.get(id=transaction_id, user=request.user)
                     if txn.status != 'captured':
                         return Response({'error': 'Payment not completed.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
                     access_granted = True
@@ -254,6 +339,7 @@ def optimize_resume(request):
         return Response({'error': 'An internal error occurred while optimizing. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+@ratelimit(key='user_or_ip', rate='10/m', block=True)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def parse_resume(request):
@@ -332,8 +418,7 @@ def parse_resume(request):
         return Response({'error': 'An internal error occurred while parsing. Please try again.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-from django.core.management import call_command
-from .models import PromoCode
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -377,33 +462,45 @@ def apply_promo_code(request):
         'discount_percentage': promo.discount_percentage
     })
 
-@api_view(['GET'])
-def run_setup(request):
-    """
-    Utility endpoint to run migrations and create a superuser on Vercel.
-    IMPORTANT: You should only hit this ONCE securely.
-    """
-    secret = request.GET.get('key')
-    if secret != 'setupcraftcv2026':  # Protection key
-        return Response({'error': 'Forbidden'}, status=403)
-        
-    try:
-        # Run database migrations directly on the remote database
-        call_command('migrate', interactive=False)
-        
-        # Create or update Superuser
-        user, created = User.objects.get_or_create(username='admin', defaults={'email': 'admin@craftcv.com'})
-        user.set_password('Adminpass123!')
-        user.is_staff = True
-        user.is_superuser = True
-        user.save()
-        
-        if created:
-            msg = 'Migrations applied and superuser created successfully!'
-        else:
-            msg = 'Migrations applied. Existing superuser password forcefully reset.'
-            
-        return Response({'status': 'success', 'message': msg})
-    except Exception as e:
-        return Response({'status': 'error', 'message': str(e)}, status=500)
+# run_setup endpoint has been removed for security.
+# Use: python manage.py migrate && python manage.py createsuperuser
+# or set DJANGO_SUPERUSER_* env vars with manage.py createsuperuser --no-input
 
+@ratelimit(key='user_or_ip', rate='20/m', block=True)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def track_ats(request):
+    """
+    Called when a user views their ATS report.
+    Free users get 3 views.
+    """
+    user = request.user
+    profile = getattr(user, 'profile', None)
+    if not profile:
+        return Response({'error': 'Profile not found.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    limit = 3
+
+    if profile.plan == 'pro':
+        return Response({
+            'allowed': True,
+            'ats_reports_used': profile.ats_reports_used,
+            'ats_report_limit': None
+        })
+
+    if profile.ats_reports_used >= limit:
+        return Response({
+            'allowed': False,
+            'ats_reports_used': profile.ats_reports_used,
+            'ats_report_limit': limit,
+            'error': f'You have used all {limit} free ATS reports. Upgrade to Pro for unlimited reports.',
+        }, status=status.HTTP_402_PAYMENT_REQUIRED)
+
+    profile.ats_reports_used += 1
+    profile.save()
+
+    return Response({
+        'allowed': True,
+        'ats_reports_used': profile.ats_reports_used,
+        'ats_report_limit': limit,
+    })

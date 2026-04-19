@@ -30,7 +30,7 @@ export function AuthProvider({ children }) {
       });
       if (res.ok) {
         const data = await res.json();
-        setUser(data);
+        setUser(data); // includes download_limit now
       } else {
         setUser(null);
       }
@@ -88,6 +88,77 @@ export function AuthProvider({ children }) {
       } catch {}
     }
     setUser(null);
+    try {
+      localStorage.removeItem('rf_resume_v2');
+    } catch {}
+  };
+
+  /**
+   * Track a PDF download. Returns { allowed, downloads_used, download_limit, error? }
+   * If allowed=false the caller should block the print and show an upgrade prompt.
+   */
+  const trackDownload = async () => {
+    if (!user) return { allowed: false, error: 'Not logged in.' };
+    try {
+      const res = await fetch(`${API}/track-download/`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.allowed) {
+        // Keep user state in sync with new counter
+        setUser(prev => prev ? { ...prev, downloads_used: data.downloads_used } : prev);
+      }
+      return data;
+    } catch {
+      return { allowed: true }; // fail-open: don't block download on network error
+    }
+  };
+
+  /**
+   * Track ATS report view. Returns { allowed, ats_reports_used, ats_report_limit, error? }
+   */
+  const trackAts = async () => {
+    if (!user) return { allowed: false, error: 'Not logged in.' };
+    try {
+      const res = await fetch(`${API}/track-ats/`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok && data.allowed) {
+        setUser(prev => prev ? { 
+          ...prev, 
+          ats_reports_used: data.ats_reports_used,
+          ats_report_limit: data.ats_report_limit
+        } : prev);
+      }
+      return data;
+    } catch {
+      return { allowed: true }; // fail-open
+    }
+  };
+
+  /**
+   * Permanently delete the user's account and all data (GDPR erasure).
+   * Returns true on success, throws on failure.
+   */
+  const deleteAccount = async () => {
+    if (!user) throw new Error('Not logged in.');
+    const res = await fetch(`${API}/auth/delete-account/`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Account deletion failed.');
+    }
+    // Clear all local state after deletion
+    setUser(null);
+    try { localStorage.removeItem('rf_resume_v2'); } catch {}
+    return true;
   };
 
   const upgradeToPro = async (transaction_id = null) => {
@@ -121,7 +192,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, offer, isLoading, login, logout, register, fetchOffer, upgradeToPro, applyPromoCode }}>
+    <AuthContext.Provider value={{ user, offer, isLoading, login, logout, register, fetchMe, fetchOffer, upgradeToPro, applyPromoCode, trackDownload, trackAts, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

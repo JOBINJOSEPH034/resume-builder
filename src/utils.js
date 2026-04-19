@@ -8,6 +8,7 @@ export const initData = {
   projects: [{ id: 1, name: '', tech: '', link: '', desc: '' }],
   certifications: [{ id: 1, name: '', issuer: '', date: '', expiry: '' }],
   languages: [{ id: 1, language: '', proficiency: 'Fluent' }],
+  custom: [],
 };
 
 // ── Sections definition ─────────────────────────────────────────
@@ -20,6 +21,7 @@ export const SECTIONS = [
   { id: 'projects',       icon: 'folder',      label: 'Projects' },
   { id: 'certifications', icon: 'award',       label: 'Certifications' },
   { id: 'languages',      icon: 'globe',       label: 'Languages' },
+  { id: 'custom',         icon: 'folder-plus', label: 'Custom Sections' },
 ];
 
 // ── UID ─────────────────────────────────────────────────────────

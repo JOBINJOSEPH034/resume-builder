@@ -20,9 +20,9 @@ export default function AuthModal({ onClose, onSuccess }) {
         onSuccess?.('login', form.email);
       } else {
         const u = await register(form);
-        onSuccess?.('register', u?.name || `${form.first_name} ${form.last_name}`.trim());
+        const name = u?.name || `${form.first_name} ${form.last_name}`.trim();
+        onSuccess?.('register', name);
       }
-      onClose();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -46,7 +46,7 @@ export default function AuthModal({ onClose, onSuccess }) {
         </div>
 
         {/* Form Side */}
-        <div style={{ flex: 1.2, padding: '40px 48px', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1.2, padding: 'clamp(24px, 5vw, 40px) clamp(24px, 6vw, 48px)', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
             <div>
@@ -99,7 +99,7 @@ export default function AuthModal({ onClose, onSuccess }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <label style={{ fontSize: '.75rem', fontWeight: 700, color: 'var(--ink2)' }}>Password</label>
-                {tab === 'register' && <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}>Min 6 chars</span>}
+                {tab === 'register' && <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}>Min 8 chars, letters + numbers</span>}
               </div>
               <input
                 className="f-input" type="password" placeholder="••••••••"

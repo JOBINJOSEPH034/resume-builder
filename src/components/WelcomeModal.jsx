@@ -69,13 +69,14 @@ export default function WelcomeModal({ userName, onClose }) {
 
   return (
     <div className="modal-overlay" style={{ backdropFilter: 'blur(8px)', zIndex: 1100 }}>
-      <div className="modal" style={{ maxWidth: 520, width: '92%', padding: 0, overflow: 'hidden' }}>
+      <div className="modal" style={{ maxWidth: 520, width: '92%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
 
         {/* Gradient header */}
         <div style={{
           background: 'linear-gradient(135deg, var(--accent), var(--purple))',
-          padding: '30px 32px 24px',
+          padding: 'clamp(20px, 4vw, 30px) clamp(16px, 5vw, 32px) 24px',
           color: 'white',
+          flexShrink: 0,
         }}>
           <div style={{ fontSize: '.72rem', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', opacity: .8, marginBottom: 8 }}>
             Welcome to CraftCV
@@ -108,7 +109,7 @@ export default function WelcomeModal({ userName, onClose }) {
         </div>
 
         {/* Step content */}
-        <div style={{ padding: '28px 32px 24px' }}>
+        <div style={{ padding: 'clamp(16px, 4vw, 28px) clamp(16px, 5vw, 32px) 10px', overflowY: 'auto', flex: 1 }}>
           <div style={{
             display: 'flex', alignItems: 'flex-start', gap: 16,
             background: 'var(--accent-light)', borderRadius: 12,
@@ -161,7 +162,10 @@ export default function WelcomeModal({ userName, onClose }) {
             ))}
           </div>
 
-          {/* Actions */}
+        </div>
+
+        {/* Actions - Pinned */}
+        <div style={{ padding: '16px clamp(16px, 5vw, 32px) 24px', borderTop: '1px solid var(--surface3)', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 10 }}>
             {step > 0 && (
               <button
@@ -205,7 +209,8 @@ export default function WelcomeModal({ userName, onClose }) {
 
         {/* Footer */}
         <div style={{
-          borderTop: '1px solid var(--border)', padding: '12px 32px',
+          flexShrink: 0,
+          borderTop: '1px solid var(--border)', padding: '12px clamp(16px, 5vw, 32px)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           background: 'var(--surface2)',
         }}>

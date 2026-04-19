@@ -24,11 +24,11 @@ export function PersonalSection({ data, onChange, sections, onNavigate, onPrint 
         <div className="fg fg2">
           <div className="form-group">
             <label className="f-label">First Name<span className="f-required">*</span></label>
-            <input className="f-input" placeholder="John" value={p.firstName} onChange={set('firstName')} />
+            <input className="f-input" placeholder="Rahul" value={p.firstName} onChange={set('firstName')} />
           </div>
           <div className="form-group">
             <label className="f-label">Last Name<span className="f-required">*</span></label>
-            <input className="f-input" placeholder="Doe" value={p.lastName} onChange={set('lastName')} />
+            <input className="f-input" placeholder="Sharma" value={p.lastName} onChange={set('lastName')} />
           </div>
           <div className="form-group full">
             <label className="f-label">Professional Title</label>
@@ -37,28 +37,28 @@ export function PersonalSection({ data, onChange, sections, onNavigate, onPrint 
           </div>
           <div className="form-group">
             <label className="f-label">Email Address<span className="f-required">*</span></label>
-            <input className="f-input" type="email" placeholder="john@example.com" value={p.email} onChange={set('email')} />
+            <input className="f-input" type="email" placeholder="rahul@example.com" value={p.email} onChange={set('email')} />
           </div>
           <div className="form-group">
             <label className="f-label">Phone Number</label>
-            <input className="f-input" placeholder="+1 (555) 000-0000" value={p.phone} onChange={set('phone')} />
+            <input className="f-input" placeholder="+91 98765 43210" value={p.phone} onChange={set('phone')} />
           </div>
           <div className="form-group full">
             <label className="f-label">Location</label>
-            <input className="f-input" placeholder="City, State (e.g. San Francisco, CA)" value={p.location} onChange={set('location')} />
+            <input className="f-input" placeholder="Bengaluru, Karnataka" value={p.location} onChange={set('location')} />
             <span className="f-hint">City and state only — don't include your full home address</span>
           </div>
           <div className="form-group">
             <label className="f-label">LinkedIn URL</label>
-            <input className="f-input" placeholder="linkedin.com/in/johndoe" value={p.linkedin} onChange={set('linkedin')} />
+            <input className="f-input" placeholder="linkedin.com/in/rahulsharma" value={p.linkedin} onChange={set('linkedin')} />
           </div>
           <div className="form-group">
             <label className="f-label">GitHub</label>
-            <input className="f-input" placeholder="github.com/johndoe" value={p.github} onChange={set('github')} />
+            <input className="f-input" placeholder="github.com/rahulsharma" value={p.github} onChange={set('github')} />
           </div>
           <div className="form-group full">
             <label className="f-label">Portfolio / Website</label>
-            <input className="f-input" placeholder="https://johndoe.dev" value={p.website} onChange={set('website')} />
+            <input className="f-input" placeholder="https://rahulsharma.dev" value={p.website} onChange={set('website')} />
           </div>
         </div>
       </div>
@@ -430,6 +430,61 @@ export function LanguagesSection({ data, onChange, sections, onNavigate, onPrint
       ))}
       <button className="add-btn" onClick={add}>+ Add Language</button>
       <SectionNavFooter sections={sections} activeId="languages" onNavigate={onNavigate} onPrint={onPrint} />
+    </div>
+  );
+}
+
+// ── Custom Sections ──────────────────────────────────────────────
+export function CustomSection({ data, onChange, sections, onNavigate, onPrint }) {
+  const custom = data.custom || [];
+  const update = (id, key, val) => onChange({ ...data, custom: custom.map(c => c.id === id ? { ...c, [key]: val } : c) });
+  const add = () => onChange({ ...data, custom: [...custom, { id: uid(), title: '', content: '' }] });
+  const remove = id => onChange({ ...data, custom: custom.filter(c => c.id !== id) });
+  
+  return (
+    <div>
+      <div className="section-header">
+        <div className="section-title">Additional Sections</div>
+        <div className="section-desc">Add entirely custom sections like Awards, Publications, Volunteering, or Hobbies.</div>
+      </div>
+      
+      {custom.length === 0 ? (
+        <div className="empty-state" style={{ padding: '30px', textAlign: 'center', background: 'var(--surface)', borderRadius: 12, border: '1px dashed var(--border)', marginBottom: 20 }}>
+          <p style={{ color: 'var(--ink2)', marginBottom: 15 }}>No custom sections added yet.</p>
+          <button className="btn btn-primary" onClick={add}>+ Add Custom Section</button>
+        </div>
+      ) : (
+        <>
+          {custom.map((sec, i) => (
+            <div className="form-card" key={sec.id}>
+              <div className="form-card-header">
+                <div className="form-card-title">{sec.title || `Custom Section ${i + 1}`}</div>
+                <DelBtn onClick={() => remove(sec.id)} />
+              </div>
+              <div className="fg">
+                <div className="form-group full">
+                  <label className="f-label">Section Heading<span className="f-required">*</span></label>
+                  <input className="f-input" placeholder="e.g. Awards & Accolades" value={sec.title} onChange={e => update(sec.id, 'title', e.target.value)} />
+                </div>
+                <div className="form-group full">
+                  <label className="f-label">Content</label>
+                  <textarea 
+                    className="f-textarea" 
+                    style={{ minHeight: 120 }}
+                    placeholder={'• Won 1st place at National Hackathon 2023\n• Published research paper in IEEE journal'} 
+                    value={sec.content} 
+                    onChange={e => update(sec.id, 'content', e.target.value)} 
+                  />
+                  <span className="f-hint">Use formatted paragraphs or start each line with • for bullet points.</span>
+                </div>
+              </div>
+            </div>
+          ))}
+          <button className="add-btn" onClick={add}>+ Add Another Section</button>
+        </>
+      )}
+      
+      <SectionNavFooter sections={sections} activeId="custom" onNavigate={onNavigate} onPrint={onPrint} />
     </div>
   );
 }

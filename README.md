@@ -1,16 +1,59 @@
-# React + Vite
+# CraftCV — Premium ATS Resume Builder
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+CraftCV is a full-stack SaaS application that allows users to build, analyze, and optimize their resumes using Google Gemini AI, ensuring they pass through Applicant Tracking Systems (ATS).
 
-Currently, two official plugins are available:
+## 🚀 Tech Stack
+- **Frontend:** React 19, Vite, Vanilla CSS
+- **Backend:** Django 5, Django REST Framework, PostgreSQL
+- **AI Integration:** Google Gemini AI (for bullet point optimization)
+- **Deployment:** Vercel (Frontend & Serverless Python Backend), Neon (Serverless Postgres)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## ⚙️ Environment Variables
 
-## React Compiler
+Copy `.env.example` to `.env` in both the root and `server` directories as needed.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Frontend (`.env`)
+```env
+VITE_API_URL=http://localhost:8000/api  # Dev
+# VITE_API_URL=https://your-backend.vercel.app/api # Prod
+```
 
-## Expanding the ESLint configuration
+### Backend (`server/.env`)
+```env
+SECRET_KEY=your-secure-random-key
+DEBUG=True # Set to False in production
+DATABASE_URL=postgresql://user:pass@ep-xxx.neon.tech/neondb
+GEMINI_API_KEY=your-google-ai-studio-key
+CORS_ALLOWED_ORIGINS=http://localhost:5173,https://craftcv.vercel.app
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🛠️ Local Development Setup
+
+1. **Backend (Terminal 1)**
+```bash
+cd server
+python -m venv venv
+venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+2. **Frontend (Terminal 2)**
+```bash
+npm install
+npm run dev
+```
+
+## 🚢 Deployment on Vercel
+
+1. **Database:** Create a Neon Postgres database and get the connection string.
+2. **Backend:** Deploy the `server` folder to Vercel as a Python project. Make sure to set `DEBUG=False` and all required environment variables.
+3. **Frontend:** Deploy the root directory to Vercel as a Vite/React project. Set `VITE_API_URL` to point to your new backend URL.
+
+## 📊 Post-Launch Monitoring (Recommended)
+
+To ensure high availability and catch bugs early:
+1. **Error Tracking (Sentry):** Run `npm install @sentry/react` and initialize it in `main.jsx`.
+2. **Uptime Monitoring:** Set up UptimeRobot to ping `https://your-backend.vercel.app/api/auth/me/` every 5 minutes.
+3. **Usage Alerts:** Set budget limits in Google Cloud console for your Gemini API usage.

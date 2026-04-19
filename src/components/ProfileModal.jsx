@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { useAuth } from '../AuthContext.jsx';
-import { Crown, Download, Tag, LogOut, X, User, ChevronRight, Star } from 'lucide-react';
+import { Crown, Download, Tag, LogOut, X, User, ChevronRight, Star, BarChart2 } from 'lucide-react';
 
 export default function ProfileModal({ onClose, showToast }) {
-  const { user, applyPromoCode, logout, upgradeToPro } = useAuth();
+  const { user, applyPromoCode, logout, upgradeToPro, deleteAccount } = useAuth();
   const [promoCode, setPromoCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const isPro = user?.plan === 'pro';
   const downloadsUsed = user?.downloads_used || 0;
-  const downloadLimit = 2;
-  const downloadPct = Math.min((downloadsUsed / downloadLimit) * 100, 100);
+  const downloadLimit = user?.download_limit ?? 2;  // from API, not hardcoded
+  const downloadPct = Math.min((downloadsUsed / (downloadLimit || 2)) * 100, 100);
 
   const handleApplyPromo = async (e) => {
     e.preventDefault();
@@ -33,6 +35,20 @@ export default function ProfileModal({ onClose, showToast }) {
     await logout();
     onClose();
     showToast('Logged out successfully', 'info');
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      await deleteAccount();
+      onClose();
+      showToast('Your account has been permanently deleted.', 'info', 5000);
+    } catch (err) {
+      showToast(err.message || 'Deletion failed. Please try again.', 'error');
+    } finally {
+      setDeleteLoading(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   if (!user) return null;
@@ -96,8 +112,9 @@ export default function ProfileModal({ onClose, showToast }) {
               <button
                 className="btn btn-sm btn-primary"
                 style={{ gap: 5 }}
-                onClick={async () => {
-                  showToast('Contact us to upgrade to Pro', 'info');
+                onClick={() => {
+                  showToast('Opening mail client...', 'info', 3000);
+                  window.location.href = 'mailto:jobinjoseph034@gmail.com?subject=Upgrade to CraftCV Pro&body=Hi! I would like to upgrade my account to Pro.';
                 }}
               >
                 <ChevronRight size={13} /> Upgrade
@@ -121,6 +138,30 @@ export default function ProfileModal({ onClose, showToast }) {
                 <div style={{
                   width: `${downloadPct}%`, height: '100%',
                   background: downloadsUsed >= downloadLimit
+                    ? 'var(--red)'
+                    : 'linear-gradient(90deg, var(--accent), var(--purple))',
+                  borderRadius: 3, transition: 'width .5s ease'
+                }} />
+              </div>
+            )}
+          </div>
+
+          {/* ATS Usage */}
+          <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 14px', marginTop: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isPro ? 0 : 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.82rem', color: 'var(--ink2)', fontWeight: 500 }}>
+                <BarChart2 size={14} strokeWidth={2} color="var(--muted)" />
+                ATS Reports
+              </div>
+              <span style={{ fontWeight: 800, fontSize: '.82rem', color: isPro ? 'var(--green)' : user.ats_reports_used >= user.ats_report_limit ? 'var(--red)' : 'var(--ink)' }}>
+                {isPro ? 'Unlimited' : `${user.ats_reports_used || 0} / ${user.ats_report_limit || 3}`}
+              </span>
+            </div>
+            {!isPro && (
+              <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${Math.min(100, Math.max(0, ((user.ats_reports_used || 0) / (user.ats_report_limit || 3)) * 100))}%`, height: '100%',
+                  background: (user.ats_reports_used || 0) >= (user.ats_report_limit || 3)
                     ? 'var(--red)'
                     : 'linear-gradient(90deg, var(--accent), var(--purple))',
                   borderRadius: 3, transition: 'width .5s ease'
@@ -156,8 +197,50 @@ export default function ProfileModal({ onClose, showToast }) {
           )}
         </div>
 
+        {/* Danger Zone — Delete Account */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20, marginBottom: 16 }}>
+          {!showDeleteConfirm ? (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              style={{
+                width: '100%', background: 'transparent', border: '1px solid var(--border)',
+                color: 'var(--muted)', cursor: 'pointer', fontWeight: 600, fontSize: '.8rem',
+                borderRadius: 10, padding: '9px', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: 7, fontFamily: 'Inter, sans-serif',
+                transition: 'all .15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = 'var(--red)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)'; }}
+            >
+              🗑 Delete Account
+            </button>
+          ) : (
+            <div style={{ background: 'var(--red-light)', border: '1px solid #fca5a5', borderRadius: 12, padding: '16px' }}>
+              <div style={{ fontSize: '.82rem', fontWeight: 700, color: 'var(--red)', marginBottom: 8 }}>⚠️ Permanently delete account?</div>
+              <div style={{ fontSize: '.75rem', color: 'var(--ink2)', marginBottom: 14, lineHeight: 1.5 }}>
+                This will <strong>permanently delete</strong> your account, all resume data, and cannot be undone.
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  style={{ flex: 1, padding: '8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 600, fontSize: '.78rem', fontFamily: 'Inter, sans-serif' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deleteLoading}
+                  style={{ flex: 1, padding: '8px', borderRadius: 8, border: 'none', background: 'var(--red)', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '.78rem', fontFamily: 'Inter, sans-serif' }}
+                >
+                  {deleteLoading ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Logout */}
-        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
           <button
             onClick={handleLogout}
             style={{

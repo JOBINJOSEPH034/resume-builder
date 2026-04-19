@@ -144,7 +144,7 @@ export function ImportPanel({ onImport, onImportFile, onToast }) {
 }
 
 // ── Job Description Analyzer ─────────────────────────────────────
-export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, text = null }) {
+export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, text = null, onImport }) {
   const [showAll, setShowAll] = useState(false);
   const keywords = extractKeywords(jobDesc);
   const matches = matchKeywords(keywords, data, text);
@@ -195,8 +195,18 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
       const result = await res.json();
       
       if (res.ok) {
-        alert('Optimization successful (mock alert, see console for response)');
-        console.log(result.optimizedBullets);
+        // Split the returned bullets by experience-entry dividers and apply them
+        const rawText = result.optimizedBullets || '';
+        const sections = rawText.split(/\n{2,}/).filter(s => s.trim());
+        if (onImport && data.experience.length > 0) {
+          const updatedExperience = data.experience.map((exp, i) => ({
+            ...exp,
+            bullets: sections[i] ? sections[i].trim() : exp.bullets,
+          }));
+          onImport({ ...data, experience: updatedExperience });
+        }
+        setAiError('');
+        onToast?.('✨ Bullets optimized! Review them in the Experience section.', 'success');
       } else {
         setAiError(result.error || 'Optimization failed.');
       }
