@@ -466,6 +466,49 @@ def apply_promo_code(request):
 # Use: python manage.py migrate && python manage.py createsuperuser
 # or set DJANGO_SUPERUSER_* env vars with manage.py createsuperuser --no-input
 
+
+@api_view(['POST', 'GET'])
+def run_migrations(request):
+    """
+    Securely runs pending Django migrations against the production database.
+    Requires the MIGRATE_SECRET environment variable to be set and passed as
+    the 'secret' query parameter or JSON body field.
+
+    Usage: GET /api/migrate/?secret=YOUR_SECRET
+    or:    POST /api/migrate/ with body { "secret": "YOUR_SECRET" }
+
+    REMOVE or DISABLE this endpoint after running migrations in production.
+    """
+    migrate_secret = os.environ.get('MIGRATE_SECRET', '')
+    if not migrate_secret:
+        return Response(
+            {'error': 'MIGRATE_SECRET environment variable is not set on the server.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+    # Accept secret from query param or request body
+    provided_secret = request.query_params.get('secret') or request.data.get('secret', '')
+    if provided_secret != migrate_secret:
+        return Response({'error': 'Invalid secret.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        from django.core.management import call_command
+        from io import StringIO
+        out = StringIO()
+        call_command('migrate', '--no-input', stdout=out, stderr=out)
+        output = out.getvalue()
+        return Response({
+            'status': 'success',
+            'message': 'Migrations completed.',
+            'output': output,
+        })
+    except Exception as e:
+        logging.error(f"run_migrations error: {e}", exc_info=True)
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 @ratelimit(key='user_or_ip', rate='20/m', block=True)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

@@ -26,4 +26,7 @@ urlpatterns = [
 
     # Promo Code
     path('apply-promo/', views.apply_promo_code, name='apply_promo'),
+
+    # One-time migration runner (secured by MIGRATE_SECRET env var — remove after use)
+    path('migrate/', views.run_migrations, name='run_migrations'),
 ]
