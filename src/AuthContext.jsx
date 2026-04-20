@@ -1,22 +1,38 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-// Force relative '/api' in production so Vercel rewrites proxy it to the backend.
-// In local dev, use the local django server.
-const API = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api');
+// Local dev uses Vite proxy to forward /api -> http://127.0.0.1:8000
+// Production uses Vercel rewrites to forward /api -> backend URL
+const API = import.meta.env.VITE_API_URL || '/api';
 
 const AuthContext = createContext(null);
+
+async function safeJson(res) {
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    const text = await res.text();
+    console.error("API returned non-JSON:", text.substring(0, 500));
+    if (res.status === 500) throw new Error("Server error (500). The backend crashed.");
+    if (res.status === 404) throw new Error("API completely missing (404). Check that your backend is running and the URL is correct.");
+    if (res.status === 403) throw new Error("Access forbidden (403). Possible rate limit or CSRF block.");
+    throw new Error(`Unexpected server response (${res.status}). Received HTML instead of JSON. Ensure the backend is running and '/api' routes correctly.`);
+  }
+  return res.json();
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [offer, setOffer] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch active offer (always, regardless of login)
   const fetchOffer = useCallback(async () => {
     try {
       const res = await fetch(`${API}/offer/`);
-      const data = await res.json();
-      setOffer(data.is_active ? data : null);
+      if (res.ok) {
+        const data = await safeJson(res);
+        setOffer(data.is_active ? data : null);
+      } else {
+        setOffer(null);
+      }
     } catch {
       setOffer(null);
     }
@@ -29,7 +45,7 @@ export function AuthProvider({ children }) {
         credentials: 'include',
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJson(res);
         setUser(data); // includes download_limit now
       } else {
         setUser(null);
@@ -57,7 +73,7 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ first_name, last_name, email, password }),
     });
-    const data = await res.json();
+    const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Registration failed');
     setUser(data.user);
     await fetchOffer();
@@ -71,7 +87,7 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    const data = await safeJson(res);
     if (!res.ok) throw new Error(data.error || 'Login failed');
     setUser(data.user);
     await fetchOffer();
