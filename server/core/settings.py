@@ -67,6 +67,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    'core.middleware.CORSMiddleware',          # Must be first to handle CORS/preflight
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -107,6 +108,19 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
+
+# Cache: Use DummyCache in serverless (Vercel) to prevent django-ratelimit crashes.
+# django-ratelimit requires a working cache backend; LocMemCache is wiped between
+# serverless invocations causing 500 errors on every rate-limited endpoint.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+    }
+}
+
+# Disable ratelimit in serverless environment (cache-backed limiting is unreliable)
+RATELIMIT_USE_CACHE = 'default'
+RATELIMIT_FAIL_OPEN = True  # If cache is unavailable, allow the request through
 
 # CORS is handled by core.middleware.CORSMiddleware (replaces django-cors-headers
 # which does not work reliably in the Vercel @vercel/python serverless runtime)
