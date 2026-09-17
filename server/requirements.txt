@@ -2,6 +2,7 @@ django>=5.0
 djangorestframework
 django-cors-headers
 google-genai
+openai
 razorpay
 gunicorn
 whitenoise

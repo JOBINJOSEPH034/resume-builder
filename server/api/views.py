@@ -10,7 +10,7 @@ from django.conf import settings
 import logging
 import os
 from .models import Transaction, Offer, UserProfile, PromoCode
-from google import genai
+from openai import OpenAI
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -265,10 +265,13 @@ def get_active_offer(request):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# GEMINI AI OPTIMIZE
+# AI OPTIMIZE & PARSE
 # ──────────────────────────────────────────────────────────────────────────────
 
-api_key = os.getenv("GEMINI_API_KEY", "")
+llm_api_key = os.getenv("LLM_API_KEY", "")
+# Default to Groq Llama 3 endpoint if not provided
+llm_base_url = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
+llm_model = os.getenv("LLM_MODEL", "llama3-8b-8192")
 
 
 @ratelimit(key='user_or_ip', rate='10/m', block=True)
@@ -285,15 +288,18 @@ def optimize_resume(request):
         resume_data = data.get('resumeData', {})
         job_desc = data.get('jobDesc', '')
 
-        # Check access: free offer OR valid transaction
-        try:
-            offer = Offer.objects.get(is_active=True)
-            if offer.ai_optimize_free:
-                access_granted = True
-            else:
-                access_granted = False
-        except Offer.DoesNotExist:
-            access_granted = False
+        # Check access: Pro user, free offer, OR valid transaction
+        access_granted = False
+        
+        if hasattr(request.user, 'profile') and request.user.profile.plan == 'pro':
+            access_granted = True
+        else:
+            try:
+                offer = Offer.objects.get(is_active=True)
+                if offer.ai_optimize_free:
+                    access_granted = True
+            except Offer.DoesNotExist:
+                pass
 
         if not access_granted:
             if transaction_id:
@@ -309,10 +315,13 @@ def optimize_resume(request):
             else:
                 return Response({'error': 'No active free offer. Payment required.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
 
-        if not api_key:
-            return Response({'error': 'Gemini API not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not llm_api_key and not llm_base_url.startswith("http://localhost"):
+            return Response({'error': 'LLM API not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        genai_client = genai.Client(api_key=api_key)
+        client = OpenAI(
+            api_key=llm_api_key or "local",
+            base_url=llm_base_url
+        )
 
         prompt = f"""
         You are an expert ATS Optimization tool.
@@ -326,12 +335,12 @@ def optimize_resume(request):
         Return the exact rewritten bullets in plain text, do NOT wrap in markdown or json. Use simple dashes or bullet points.
         """
 
-        response = genai_client.models.generate_content(
-            model='gemini-2.5-pro',
-            contents=prompt,
+        response = client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": prompt}]
         )
 
-        optimized_bullets = response.text
+        optimized_bullets = response.choices[0].message.content
         return Response({'optimizedBullets': optimized_bullets}, status=status.HTTP_200_OK)
 
     except Exception as e:
@@ -357,10 +366,13 @@ def parse_resume(request):
         if len(resume_text) > 20000:
             return Response({'error': 'Resume text is too large to process. Please reduce the size.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not api_key:
-            return Response({'error': 'Gemini API not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if not llm_api_key and not llm_base_url.startswith("http://localhost"):
+            return Response({'error': 'LLM API not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        genai_client = genai.Client(api_key=api_key)
+        client = OpenAI(
+            api_key=llm_api_key or "local",
+            base_url=llm_base_url
+        )
 
         prompt = f"""
         You are an expert resume parser. I will provide you with the raw text extracted from a resume.
@@ -394,12 +406,13 @@ def parse_resume(request):
         {resume_text}
         """
 
-        response = genai_client.models.generate_content(
-            model='gemini-2.5-pro',
-            contents=prompt,
+        response = client.chat.completions.create(
+            model=llm_model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
         )
 
-        parsed_json_str = response.text
+        parsed_json_str = response.choices[0].message.content
         # Clean up if Gemini returns markdown block
         if parsed_json_str.startswith('```json'):
             parsed_json_str = parsed_json_str[7:]

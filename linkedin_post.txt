@@ -1,0 +1,45 @@
+# CraftCV - Project Overview & LinkedIn Post
+
+## Project Overview
+
+### What the Website Includes:
+- **AI-Powered ATS Analyzer:** Leverages Google Gemini AI to analyze resumes against industry standards, providing a compatibility score and actionable improvement suggestions.
+- **Premium UI/UX:** A modern, glassmorphism-inspired interface built with React and custom Vanilla CSS, featuring micro-animations and responsive layouts.
+- **Secure Infrastructure:** Full-stack architecture with a Django REST Framework backend, PostgreSQL database, and secure user authentication.
+- **Interactive Onboarding:** Guided multi-step user experience to ensure high engagement.
+
+### What Was Done:
+- Designed and engineered the entire application from scratch (Frontend & Backend).
+- Integrated LLMs (Google Gemini) for real-time text analysis and optimization.
+- Optimized performance for serverless deployment on Vercel.
+
+---
+
+## LinkedIn Post
+
+Struggling to get past the initial resume screen? You aren't alone. 
+
+Most resumes never reach a human recruiter because they get filtered out by Applicant Tracking Systems (ATS). To solve this, I built **CraftCV**—a premium, AI-powered resume builder designed to bridge the gap between job seekers and hiring managers.
+
+Here’s what makes CraftCV different:
+
+🚀 **AI ATS Analyzer:** Powered by Google Gemini, it scans your resume, predicts your compatibility score, and gives you real-time feedback on keywords you're missing.
+🎨 **Premium Experience:** No clunky templates. I designed a modern, glassmorphism UI from scratch with smooth micro-animations.
+🔒 **Full-Stack Reliability:** Built on a robust Django backend with secure user authentication and usage tracking.
+
+**The Tech Stack:**
+- **Frontend:** React 19, Vite, custom CSS
+- **Backend:** Django, PostgreSQL
+- **AI:** Google Gemini API
+- **Deployment:** Vercel & Neon
+
+Building this required diving deep into AI prompt engineering, state management, and designing accessible, interactive user flows. 
+
+Check out the code or see how it works below:
+
+💻 GitHub: https://github.com/JOBINJOSEPH034/resume-builder
+🌐 Portfolio Showcase: https://www.jobinjoseph.in/#/projects/4
+
+If you're job hunting or building cool SaaS tools, I'd love to hear your feedback!
+
+#BuildInPublic #FullStack #ReactJS #Django #GenerativeAI #JobSearch

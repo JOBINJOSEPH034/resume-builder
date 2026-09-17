@@ -1,0 +1,29 @@
+Title: CraftCV - Premium AI-Powered Resume Builder
+
+Client: Personal Project / Open Source
+
+Client or Project Category: SaaS / Career Technology
+
+Role: Full Stack Developer
+
+Your role in the project: Designed and developed the entire application from scratch, including the UI/UX, backend architecture, AI integrations, and deployment pipeline.
+
+Description:
+CraftCV is a modern, premium SaaS application designed to empower job seekers by creating professional, ATS-friendly resumes. The platform combines a sleek, glassmorphism-inspired user interface with powerful AI analysis tools. Users can build resumes from scratch or analyze existing ones for ATS compatibility, receiving actionable feedback to improve their hiring chances. The project focuses on a "premium feel" with smooth transitions, responsive design, and a robust backend to handle secure user data and AI processing.
+
+Key highlights:
+- Modern Glassmorphism UI: Developed a high-end, responsive interface using React and custom CSS, focusing on premium typography (Inter/Outfit) and micro-animations.
+- AI ATS Analyzer: Integrated Google Gemini AI to analyze resumes against industry standards, providing users with a "compatibility score" and improvement suggestions.
+- Secure Authentication & Authorization: Implemented a robust Django-based authentication system with role-based access control and usage tracking.
+- Interactive Onboarding: Created a multi-step user tutorial and onboarding flow to increase user engagement and retention on mobile and desktop.
+- Optimized Backend: Built a scalable REST API using Django REST Framework, integrated with PostgreSQL and optimized for serverless deployment on Vercel.
+
+Tech stack:
+React, Vite, JavaScript, Django, Django REST Framework, Google Gemini AI (GenAI), PostgreSQL, Razorpay, Lucide React, CSS3, Vercel
+
+Outcome:
+Successfully built and deployed a production-ready SaaS platform that simplifies the resume-building process. The AI integration provides quantifiable value by identifying missing keywords and formatting issues, helping users increase their ATS pass rates. The project demonstrates proficiency in building end-to-end full-stack applications with a strong focus on modern UI/UX and AI implementation.
+
+Repo link: https://github.com/JOBINJOSEPH034/resume-builder.git
+
+Live link: https://www.jobinjoseph.in/#/projects/4 (Portfolio Showcase)

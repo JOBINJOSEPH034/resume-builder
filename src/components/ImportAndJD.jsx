@@ -165,7 +165,10 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
   const [aiError, setAiError] = useState('');
 
   const handleOptimize = async () => {
-    if (!offer?.is_active || !offer?.ai_optimize_free) {
+    const isPro = user?.plan === 'pro';
+    const isFreeWithOffer = offer?.is_active && offer?.ai_optimize_free;
+
+    if (!isPro && !isFreeWithOffer) {
       setShowUpgradeModal(true);
       return;
     }
@@ -185,7 +188,7 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
     setAiError('');
 
     try {
-      const API = import.meta.env.PROD ? '/api' : (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api');
+      const API = import.meta.env.VITE_API_URL || '/api';
       const res = await fetch(`${API}/optimize/`, {
         method: 'POST',
         credentials: 'include',

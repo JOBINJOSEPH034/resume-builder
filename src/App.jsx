@@ -20,8 +20,30 @@ import {
   User, AlignLeft, Briefcase, GraduationCap, Zap, FolderOpen, Award, Globe,
   FolderInput, Target, Upload, PenLine, Sun, Moon, BarChart2, Eye, Download,
   LogIn, CheckCircle2, Wrench, ScanSearch, ChevronRight, ChevronLeft, Sparkles, X,
-  Menu, Settings,
+  Menu, Settings, MoreHorizontal, FileText,
 } from 'lucide-react';
+
+// Hook: detect mobile viewport
+function useIsMobile(breakpoint = 760) {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= breakpoint);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+// Bottom nav tabs — 5 primary sections + More
+const BOTTOM_NAV = [
+  { id: 'personal',    icon: User,        label: 'Personal' },
+  { id: 'summary',     icon: AlignLeft,   label: 'Summary' },
+  { id: 'experience',  icon: Briefcase,   label: 'Experience' },
+  { id: 'education',   icon: GraduationCap, label: 'Education' },
+  { id: 'skills',      icon: Zap,         label: 'Skills' },
+  { id: '__more__',    icon: MoreHorizontal, label: 'More' },
+];
 
 // A4 dimensions in pixels at 96dpi
 const A4_W_PX = 794;
@@ -69,6 +91,7 @@ export default function App() {
   const [analyzerTab, setAnalyzerTab] = useState('import'); // 'import' | 'edit' | 'jd'
   const [mobileTutStep, setMobileTutStep] = useLocalStorage('craftcv_mobile_tut_seq', 1); // 1 = step1, 2 = step2, 0 = done
   const [showSplash, setShowSplash] = useState(true);
+  const isMobile = useIsMobile();
   const { toasts, show: showToast } = useToast();
   const { theme, toggle: toggleTheme } = useTheme();
   const { user, offer, logout, upgradeToPro, trackDownload, trackAts } = useAuth();
@@ -280,6 +303,27 @@ export default function App() {
   const scaledW = Math.round(A4_W_PX * zoom);
   const scaledH = Math.round(A4_H_PX * zoom);
 
+  // Mobile preview modal: fit A4 width within screen
+  const mobileModalZoom = isMobile
+    ? Math.min(0.84, (window.innerWidth - 24) / A4_W_PX)
+    : 0.84;
+  const mobileModalW = Math.round(A4_W_PX * mobileModalZoom);
+  const mobileModalH = Math.round(A4_H_PX * mobileModalZoom);
+
+  // Active section label for mobile header badge
+  const activeSectionLabel = ALL_SECTIONS.find(s => s.id === active)?.label || 'Builder';
+
+  // Handle bottom nav tab click
+  const handleBottomNavTab = (tabId) => {
+    if (tabId === '__more__') {
+      setShowMobileSidebar(true);
+      setMobileTutStep(0);
+    } else {
+      setActive(tabId);
+      setAppMode('BUILDER');
+    }
+  };
+
   return (
     <>
       {/* ── PRINT AREA — injected directly into document.body via Portal so it's outside #root.
@@ -313,61 +357,10 @@ export default function App() {
 
       {/* ── TOP BAR ── */}
       <div className="topbar">
-        {/* Hamburger - mobile only */}
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-          <button className="mobile-menu-btn" onClick={() => { setShowMobileSidebar(v => !v); setMobileTutStep(0); }} title="Menu">
-            <Menu size={20} strokeWidth={1.8} />
-          </button>
-          {/* Multi-step Onboarding Tooltip for first-time mobile users */}
-          {mobileTutStep > 0 && !showMobileSidebar && (
-            <div className="mobile-tutorial-tooltip" style={{
-              position: 'absolute', top: 'calc(100% + 14px)', left: 0, width: 280, 
-              background: 'linear-gradient(135deg, var(--accent), var(--purple))',
-              color: 'white', padding: '16px 18px', borderRadius: 14, 
-              boxShadow: 'var(--shadow-xl)', zIndex: 1000, 
-              textAlign: 'left', cursor: 'default'
-            }} onClick={e => e.stopPropagation()}>
-              <div style={{ position: 'absolute', top: -6, left: 14, width: 14, height: 14, background: 'var(--accent)', transform: 'rotate(45deg)', borderRadius: 2 }} />
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: '.9rem', fontWeight: 800, fontFamily: 'Outfit, sans-serif' }}>
-                  {mobileTutStep === 1 ? '1. Welcome to CraftCV!' : '2. Application Modes'}
-                </span>
-                <X size={15} style={{ cursor: 'pointer', opacity: 0.8 }} onClick={(e) => { e.stopPropagation(); setMobileTutStep(0); }} />
-              </div>
-              
-              <p style={{ margin: '0 0 16px', fontSize: '.8rem', lineHeight: 1.5, opacity: 0.95, fontWeight: 400 }}>
-                {mobileTutStep === 1 ? (
-                  <>Tap this <strong>3-line Menu</strong> anytime to access your layout options, resume builder sections, and PDF download.</>
-                ) : (
-                  <>Inside the menu, toggle between <strong>Builder</strong> mode (create from scratch) and <strong>Analyzer</strong> mode (score an imported resume).</>
-                )}
-              </p>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: 3, background: mobileTutStep === 1 ? 'white' : 'rgba(255,255,255,0.3)' }} />
-                  <div style={{ width: 6, height: 6, borderRadius: 3, background: mobileTutStep === 2 ? 'white' : 'rgba(255,255,255,0.3)' }} />
-                </div>
-                
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {mobileTutStep === 1 ? (
-                    <>
-                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(0); }} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '.75rem', cursor: 'pointer', fontWeight: 600 }}>Skip</button>
-                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(2); }} style={{ background: 'white', border: 'none', color: 'var(--accent)', padding: '6px 14px', borderRadius: 8, fontSize: '.75rem', fontWeight: 800, cursor: 'pointer' }}>Next</button>
-                    </>
-                  ) : (
-                    <>
-                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(1); }} style={{ background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '.75rem', cursor: 'pointer', fontWeight: 600 }}>Back</button>
-                      <button onClick={(e) => { e.stopPropagation(); setMobileTutStep(0); }} style={{ background: 'white', border: 'none', color: 'var(--accent)', padding: '6px 14px', borderRadius: 8, fontSize: '.75rem', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={13} strokeWidth={3} /> Got it!</button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-            </div>
-          )}
-        </div>
+        {/* Hamburger — mobile only */}
+        <button className="mobile-menu-btn" onClick={() => { setShowMobileSidebar(v => !v); setMobileTutStep(0); }} title="Menu" aria-label="Open menu">
+          <Menu size={20} strokeWidth={1.8} />
+        </button>
 
         <div className="topbar-brand">
           <div className="brand-icon">C</div>
@@ -380,10 +373,10 @@ export default function App() {
         <div className="topbar-center" id="tut-ats-score">
           <button className={`ats-score-badge ${scoreClass}`} style={{ cursor: 'pointer' }} onClick={handleOpenAts} title="Click to view detailed ATS Report">
             <div className="score-pulse" style={{ background: scoreColor }} />
-            <span>ATS Report: <strong>{atsScore}%</strong></span>
-            {atsScore >= 80 && <Sparkles size={13} />}
+            <span>ATS: <strong>{atsScore}%</strong></span>
+            {atsScore >= 80 && <Sparkles size={12} />}
           </button>
-          {jobDesc.length > 20 && (
+          {!isMobile && jobDesc.length > 20 && (
             <div style={{ fontSize: '.72rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ color: kwMatchPct >= 70 ? 'var(--green)' : 'var(--yellow)' }}>●</span>
               JD match: {kwMatchPct}%
@@ -405,8 +398,8 @@ export default function App() {
           <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setShowPreviewModal(true)} style={{ gap: 5 }}>
             <Eye size={14} /> Preview
           </button>
-          <button id="tut-download" className="btn btn-sm btn-primary" onClick={handlePrint} style={{ gap: 5 }}>
-            <Download size={14} /> <span className="topbar-hide-xs">Download PDF</span>
+          <button id="tut-download" className="btn btn-sm btn-primary topbar-hide-xs" onClick={handlePrint} style={{ gap: 5 }}>
+            <Download size={14} /> Download PDF
           </button>
           {!user ? (
             <button className="btn btn-sm btn-primary" onClick={() => setShowAuthModal(true)} style={{ gap: 5 }}>
@@ -425,6 +418,23 @@ export default function App() {
         </div>
       </div>
 
+      {/* ── MOBILE ATS STRIP — score bar shown on mobile below topbar ── */}
+      <div className="mobile-ats-strip">
+        <button
+          onClick={handleOpenAts}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, padding: 0 }}
+        >
+          <div className="score-pulse" style={{ background: scoreColor, width: 7, height: 7, borderRadius: '50%', animation: 'pulse 1.8s infinite' }} />
+          <span style={{ fontSize: '.75rem', fontWeight: 700, color: scoreColor }}>ATS {atsScore}%</span>
+        </button>
+        <div className="mobile-ats-bar-bg">
+          <div className="mobile-ats-bar-fill" style={{ width: `${atsScore}%`, background: scoreColor }} />
+        </div>
+        {jobDesc.length > 20 && (
+          <span style={{ fontSize: '.7rem', color: 'var(--muted)', fontWeight: 600, flexShrink: 0 }}>JD {kwMatchPct}%</span>
+        )}
+      </div>
+
       {/* ── OFFER BANNER ── */}
       {offer && offer.is_active && (
         <div className="offer-banner">
@@ -436,22 +446,43 @@ export default function App() {
       {/* ── BODY ── */}
       <div className="body-row">
 
-        {/* ── MOBILE SIDEBAR OVERLAY ── */}
+        {/* ── MOBILE SIDEBAR OVERLAY / DRAWER ── */}
         {showMobileSidebar && (
           <div className="mobile-sidebar-overlay" onClick={() => setShowMobileSidebar(false)}>
             <div className="mobile-sidebar-drawer" onClick={e => e.stopPropagation()}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: 800, fontSize: '.95rem', color: 'var(--ink)', fontFamily: 'Outfit, sans-serif' }}>Menu</div>
-                <button onClick={() => setShowMobileSidebar(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', display: 'flex', padding: 4 }}>
-                  <X size={18} />
+              {/* Drawer header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '18px 16px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div className="brand-icon" style={{ width: 32, height: 32, fontSize: '.8rem', borderRadius: 9 }}>C</div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '.9rem', color: 'var(--ink)', fontFamily: 'Outfit, sans-serif', lineHeight: 1.1 }}>CraftCV</div>
+                    <div style={{ fontSize: '.65rem', color: 'var(--muted)' }}>Menu</div>
+                  </div>
+                </div>
+                <button onClick={() => setShowMobileSidebar(false)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--muted)', display: 'flex', padding: 6 }}>
+                  <X size={16} />
                 </button>
               </div>
-              {/* same sidebar content injected here */}
-              <div style={{ padding: '10px 10px', overflowY: 'auto', flex: 1 }}>
+
+              {/* ATS score card inside drawer */}
+              <div style={{ margin: '12px 12px 0', padding: '12px 14px', background: 'linear-gradient(135deg, var(--accent-light), var(--purple-light))', borderRadius: 12, border: '1px solid var(--accent-mid)', cursor: 'pointer' }} onClick={() => { handleOpenAts(); setShowMobileSidebar(false); }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: '.72rem', fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.08em' }}>Resume Strength</span>
+                  <span style={{ fontSize: '1rem', fontWeight: 900, color: scoreColor }}>{atsScore}%</span>
+                </div>
+                <div style={{ height: 5, background: 'rgba(91,94,244,.15)', borderRadius: 5, overflow: 'hidden' }}>
+                  <div style={{ width: `${atsScore}%`, height: '100%', background: `linear-gradient(90deg, ${scoreColor}, var(--purple))`, borderRadius: 5, transition: 'width .6s' }} />
+                </div>
+                <div style={{ fontSize: '.68rem', color: 'var(--ink2)', marginTop: 5 }}>
+                  {atsScore < 40 ? 'Keep filling sections!' : atsScore < 65 ? 'Looking good, keep going!' : atsScore < 85 ? 'Add JD keywords!' : 'Ready to apply 🎉'}
+                </div>
+              </div>
+
+              <div style={{ padding: '10px', overflowY: 'auto', flex: 1 }}>
                 {/* ── MODE TOGGLE ── */}
-                <div style={{ display: 'flex', gap: 4, paddingBottom: 16, marginBottom: 16, borderBottom: '1px solid var(--border)' }}>
-                   <button onClick={() => setAppMode('BUILDER')} className={`btn btn-sm ${appMode === 'BUILDER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><Wrench size={13} /> Builder</button>
-                   <button onClick={() => { if (importedFile) { setAppMode('ANALYZER'); setAnalyzerTab('edit'); } else { setAppMode('ANALYZER'); setAnalyzerTab('import'); } }} className={`btn btn-sm ${appMode === 'ANALYZER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><ScanSearch size={13} /> Analyzer</button>
+                <div style={{ display: 'flex', gap: 4, paddingBottom: 12, marginBottom: 12, borderBottom: '1px solid var(--border)' }}>
+                  <button onClick={() => { setAppMode('BUILDER'); }} className={`btn btn-sm ${appMode === 'BUILDER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><Wrench size={13} /> Builder</button>
+                  <button onClick={() => { if (importedFile) { setAppMode('ANALYZER'); setAnalyzerTab('edit'); } else { setAppMode('ANALYZER'); setAnalyzerTab('import'); } }} className={`btn btn-sm ${appMode === 'ANALYZER' ? 'btn-primary' : 'btn-secondary'} w-full`} style={{ justifyContent: 'center', gap: 5 }}><ScanSearch size={13} /> Analyzer</button>
                 </div>
 
                 {appMode === 'BUILDER' ? (
@@ -461,6 +492,9 @@ export default function App() {
                       <button key={s.id} className={`nav-item special-nav${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
                         <span className="nav-icon"><NavIcon name={s.icon} /></span>
                         <span className="nav-label">{s.label}</span>
+                        {s.id === 'jd' && jobDesc.length > 20 && (
+                          <span style={{ marginLeft: 'auto', fontSize: '.62rem', fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: kwMatchPct >= 70 ? 'var(--green)' : 'var(--yellow)', color: 'white' }}>{kwMatchPct}%</span>
+                        )}
                       </button>
                     ))}
                     <div className="sidebar-section-label">Resume Sections</div>
@@ -468,7 +502,9 @@ export default function App() {
                       <button key={s.id} className={`nav-item${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
                         <span className="nav-icon"><NavIcon name={s.icon} /></span>
                         <span className="nav-label">{s.label}</span>
-                        {isDone(s.id, data) ? <span className="nav-done"><CheckCircle2 size={14} strokeWidth={2} /></span> : null}
+                        {isDone(s.id, data)
+                          ? <span className="nav-done"><CheckCircle2 size={14} strokeWidth={2} /></span>
+                          : null}
                       </button>
                     ))}
                   </>
@@ -486,12 +522,20 @@ export default function App() {
                     </button>
                   </>
                 )}
-                <div style={{ padding: '16px 10px 4px', borderTop: '1px solid var(--border)', marginTop: 12 }}>
-                  <button className="btn btn-primary w-full" onClick={() => { handlePrint(); setShowMobileSidebar(false); }} style={{ justifyContent: 'center', gap: 6 }}>
-                    <Download size={14} /> Download PDF
-                  </button>
-                  <button className="btn btn-secondary w-full" style={{ justifyContent: 'center', marginTop: 8 }} onClick={() => { setShowPreviewModal(true); setShowMobileSidebar(false); }}>
+
+                {/* Secondary actions */}
+                <div style={{ padding: '14px 0 4px', borderTop: '1px solid var(--border)', marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button className="btn btn-secondary w-full" style={{ justifyContent: 'center', gap: 6 }} onClick={() => { setShowPreviewModal(true); setShowMobileSidebar(false); }}>
                     <Eye size={14} /> Preview Resume
+                  </button>
+                  <button className="btn btn-secondary w-full" style={{ justifyContent: 'center', gap: 6 }} onClick={() => { setActive('import'); setShowMobileSidebar(false); }}>
+                    <FolderInput size={14} /> Import Resume
+                  </button>
+                  <button className="btn btn-secondary w-full" style={{ justifyContent: 'center', gap: 6 }} onClick={() => { handleOpenAts(); setShowMobileSidebar(false); }}>
+                    <BarChart2 size={14} /> ATS Report
+                  </button>
+                  <button className="btn btn-danger w-full" style={{ justifyContent: 'center', gap: 6 }} onClick={() => { handleClear(); setShowMobileSidebar(false); }}>
+                    <X size={14} /> Clear Resume
                   </button>
                 </div>
               </div>
@@ -673,22 +717,85 @@ export default function App() {
 
       </div>
 
-      {/* ── FOOTER ── */}
-      <div style={{
-        height: 32, flexShrink: 0,
-        background: 'var(--surface)',
-        borderTop: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        gap: 8, fontSize: '.67rem', color: 'var(--muted)', flexWrap: 'wrap', padding: '0 12px',
-      }}>
-        <span>© {new Date().getFullYear()} CraftCV</span>
-        <span style={{ opacity: .4 }}>·</span>
-        <span>Powered by <strong style={{ color: 'var(--ink2)', fontWeight: 700 }}>Jobin Joseph</strong></span>
-        <span style={{ opacity: .4 }}>·</span>
-        <button onClick={() => setShowPrivacy(true)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 'inherit', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}>Privacy</button>
-        <span style={{ opacity: .4 }}>·</span>
-        <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 'inherit', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}>Terms</button>
-      </div>
+      {/* ── FOOTER (hidden on mobile — replaced by bottom nav) ── */}
+      {!isMobile && (
+        <div style={{
+          height: 32, flexShrink: 0,
+          background: 'var(--surface)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 8, fontSize: '.67rem', color: 'var(--muted)', flexWrap: 'wrap', padding: '0 12px',
+        }}>
+          <span>© {new Date().getFullYear()} CraftCV</span>
+          <span style={{ opacity: .4 }}>·</span>
+          <span>Powered by <strong style={{ color: 'var(--ink2)', fontWeight: 700 }}>Jobin Joseph</strong></span>
+          <span style={{ opacity: .4 }}>·</span>
+          <button onClick={() => setShowPrivacy(true)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 'inherit', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}>Privacy</button>
+          <span style={{ opacity: .4 }}>·</span>
+          <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 'inherit', padding: 0, textDecoration: 'underline', textUnderlineOffset: 3 }}>Terms</button>
+        </div>
+      )}
+
+      {/* ── MOBILE FAB: Download PDF ── */}
+      <button
+        className="mobile-fab"
+        onClick={handlePrint}
+        title="Download PDF"
+        aria-label="Download PDF"
+      >
+        <Download size={22} strokeWidth={2} />
+      </button>
+
+      {/* ── MOBILE BOTTOM NAVIGATION BAR ── */}
+      <nav className="mobile-bottom-nav" aria-label="Main navigation">
+        <div className="mobile-bottom-nav-inner">
+          {appMode === 'BUILDER' ? (
+            BOTTOM_NAV.map(tab => {
+              const Icon = tab.icon;
+              const isActive = tab.id === '__more__'
+                ? showMobileSidebar
+                : active === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  className={`mobile-nav-tab${isActive ? ' active' : ''}`}
+                  onClick={() => handleBottomNavTab(tab.id)}
+                  aria-label={tab.label}
+                >
+                  <div className="mobile-nav-tab-icon">
+                    <Icon size={18} strokeWidth={isActive ? 2.2 : 1.8} />
+                  </div>
+                  <span className="mobile-nav-tab-label">{tab.label}</span>
+                </button>
+              );
+            })
+          ) : (
+            // Analyzer mode: 3 tabs + more
+            <>
+              <button className={`mobile-nav-tab${analyzerTab === 'import' ? ' active' : ''}`} onClick={() => setAnalyzerTab('import')}>
+                <div className="mobile-nav-tab-icon"><Upload size={18} strokeWidth={analyzerTab === 'import' ? 2.2 : 1.8} /></div>
+                <span className="mobile-nav-tab-label">Upload</span>
+              </button>
+              <button className={`mobile-nav-tab${analyzerTab === 'edit' ? ' active' : ''}`} onClick={() => setAnalyzerTab('edit')} disabled={!importedFile} style={{ opacity: importedFile ? 1 : 0.4 }}>
+                <div className="mobile-nav-tab-icon"><PenLine size={18} strokeWidth={analyzerTab === 'edit' ? 2.2 : 1.8} /></div>
+                <span className="mobile-nav-tab-label">Edit</span>
+              </button>
+              <button className={`mobile-nav-tab${analyzerTab === 'jd' ? ' active' : ''}`} onClick={() => setAnalyzerTab('jd')}>
+                <div className="mobile-nav-tab-icon"><Target size={18} strokeWidth={analyzerTab === 'jd' ? 2.2 : 1.8} /></div>
+                <span className="mobile-nav-tab-label">JD</span>
+              </button>
+              <button className={`mobile-nav-tab`} onClick={() => setAppMode('BUILDER')}>
+                <div className="mobile-nav-tab-icon"><Wrench size={18} strokeWidth={1.8} /></div>
+                <span className="mobile-nav-tab-label">Builder</span>
+              </button>
+              <button className={`mobile-nav-tab${showMobileSidebar ? ' active' : ''}`} onClick={() => { setShowMobileSidebar(true); setMobileTutStep(0); }}>
+                <div className="mobile-nav-tab-icon"><MoreHorizontal size={18} strokeWidth={1.8} /></div>
+                <span className="mobile-nav-tab-label">More</span>
+              </button>
+            </>
+          )}
+        </div>
+      </nav>
 
       {/* ── ATS REPORT MODAL ── */}
       {showAtsModal && (
@@ -841,48 +948,51 @@ export default function App() {
       {showPreviewModal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPreviewModal(false)}>
           <div style={{
-            background: 'var(--surface)', borderRadius: 16, padding: 24,
-            width: '95vw', maxWidth: 960, maxHeight: '95vh',
-            display: 'flex', flexDirection: 'column', gap: 16,
+            background: 'var(--surface)',
+            borderRadius: isMobile ? '20px 20px 0 0' : 16,
+            padding: isMobile ? '18px 16px 24px' : 24,
+            width: isMobile ? '100%' : '95vw',
+            maxWidth: isMobile ? '100%' : 960,
+            maxHeight: isMobile ? '95dvh' : '95vh',
+            display: 'flex', flexDirection: 'column', gap: isMobile ? 12 : 16,
             boxShadow: '0 20px 60px rgba(0,0,0,.4)',
+            alignSelf: isMobile ? 'flex-end' : 'center',
           }}>
             {/* Modal header */}
-            <div style={{ display: 'flex', justifySelf: 'stretch', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, gap: 8 }}>
               <div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--ink)' }}>📄 Resume Preview</div>
-                <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: 2 }}>This is exactly how your PDF will look</div>
+                <div style={{ fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 800, color: 'var(--ink)' }}>📄 Resume Preview</div>
+                {!isMobile && <div style={{ fontSize: '.75rem', color: 'var(--muted)', marginTop: 2 }}>This is exactly how your PDF will look</div>}
               </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <select className="f-select" style={{ padding: '4px 12px', fontSize: '.8rem', height: 'auto', fontWeight: 600 }} value={template} onChange={e => setTemplate(e.target.value)}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <select className="f-select" style={{ padding: '4px 10px', fontSize: '.78rem', height: 'auto', fontWeight: 600, maxWidth: isMobile ? 110 : 'auto' }} value={template} onChange={e => setTemplate(e.target.value)}>
                   {templates.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
-                <button className="btn btn-primary btn-sm" onClick={handlePrint}>⬇ Download PDF</button>
-                <button
-                  style={{ background:'none',border:'none',fontSize:'1.2rem',cursor:'pointer',color:'var(--muted)',padding:'4px 8px',borderRadius:6 }}
-                  onClick={() => setShowPreviewModal(false)}
-                >✕</button>
+                {!isMobile && <button className="btn btn-primary btn-sm" onClick={handlePrint} style={{ gap: 5 }}><Download size={13} /> Download PDF</button>}
+                <button className="modal-close" onClick={() => setShowPreviewModal(false)}><X size={16} strokeWidth={2} /></button>
               </div>
             </div>
 
-            {/* Scrollable resume preview at ~85% scale */}
+            {/* Scrollable resume preview — auto-fitted zoom on mobile */}
             <div style={{
               flex: 1, overflowY: 'auto', overflowX: 'hidden',
-              background: '#c8c7c0', borderRadius: 10, padding: 20,
+              background: '#c8c7c0', borderRadius: 10,
+              padding: isMobile ? '14px 8px' : 20,
               display: 'flex', justifyContent: 'center',
             }}>
-              {(() => {
-                const modalZoom = 0.84;
-                const mW = Math.round(A4_W_PX * modalZoom);
-                const mH = Math.round(A4_H_PX * modalZoom);
-                return (
-                  <div style={{ width: mW, height: mH, overflow: 'hidden', flexShrink: 0 }}>
-                    <div style={{ transform: `scale(${modalZoom})`, transformOrigin: 'top left', width: A4_W_PX }}>
-                      <ResumePreview data={data} template={template} />
-                    </div>
-                  </div>
-                );
-              })()}
+              <div style={{ width: mobileModalW, height: mobileModalH, overflow: 'hidden', flexShrink: 0 }}>
+                <div style={{ transform: `scale(${mobileModalZoom})`, transformOrigin: 'top left', width: A4_W_PX }}>
+                  <ResumePreview data={data} template={template} />
+                </div>
+              </div>
             </div>
+
+            {/* Mobile: download button at bottom */}
+            {isMobile && (
+              <button className="btn btn-primary w-full" onClick={handlePrint} style={{ justifyContent: 'center', gap: 8 }}>
+                <Download size={16} /> Download PDF
+              </button>
+            )}
           </div>
         </div>
       )}
