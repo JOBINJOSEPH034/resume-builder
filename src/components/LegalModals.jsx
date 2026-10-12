@@ -78,16 +78,16 @@ export function TermsModal({ onClose }) {
           <button className="modal-close" onClick={onClose} aria-label="Close terms of service"><X size={16} /></button>
         </div>
         <div style={{ fontSize: '.83rem', color: 'var(--ink2)', lineHeight: 1.75, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <p style={{ color: 'var(--muted)', fontSize: '.75rem' }}>Last updated: April 2026 · By using CraftCV you agree to these terms.</p>
+          <p style={{ color: 'var(--muted)', fontSize: '.75rem' }}>Last updated: April 2026 · By using Ready Candidate you agree to these terms.</p>
 
           <section>
             <h3 style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>1. Acceptance of Terms</h3>
-            <p>By creating an account or using CraftCV, you agree to these Terms of Service. If you do not agree, please do not use the service.</p>
+            <p>By creating an account or using Ready Candidate, you agree to these Terms of Service. If you do not agree, please do not use the service.</p>
           </section>
 
           <section>
-            <h3 style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>2. What CraftCV Provides</h3>
-            <p>CraftCV is an ATS resume builder tool that helps you create and optimize resumes. The AI optimization feature uses Google Gemini to rewrite experience bullet points. <strong>AI-generated content is a suggestion only</strong> — you are responsible for ensuring accuracy of all information in your resume.</p>
+            <h3 style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>2. What Ready Candidate Provides</h3>
+            <p>Ready Candidate is an ATS resume builder tool that helps you create and optimize resumes. The AI optimization feature uses Google Gemini to rewrite experience bullet points. <strong>AI-generated content is a suggestion only</strong> — you are responsible for ensuring accuracy of all information in your resume.</p>
           </section>
 
           <section>
@@ -102,18 +102,18 @@ export function TermsModal({ onClose }) {
           </section>
 
           <section>
-            <h3 style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>4. Free Plan & Pro Plan</h3>
-            <p>Free accounts receive a limited number of PDF downloads. Pro accounts receive unlimited downloads. Plan limits are enforced server-side. Attempting to circumvent limits will result in account suspension.</p>
+            <h3 style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>4. Starter Plan & Pro Plan</h3>
+            <p>Starter plan (₹199) accounts receive Resume Studio, Cover Letters, 5 saved resumes, 5 PDF downloads, and 5 ATS reports. Pro accounts (₹499) receive full LinkedIn Studio access, AI tools, 50 saved resumes, and unlimited downloads & ATS reports. Plan limits are enforced server-side.</p>
           </section>
 
           <section>
             <h3 style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>5. Intellectual Property</h3>
-            <p>Resume content you create belongs to you. CraftCV's application code, design, and AI prompts are the intellectual property of the creator (Jobin Joseph). You may not copy or redistribute the application.</p>
+            <p>Resume content you create belongs to you. Ready Candidate's application code, design, and AI prompts are the intellectual property of the creator (Jobin Joseph). You may not copy or redistribute the application.</p>
           </section>
 
           <section>
             <h3 style={{ fontSize: '.9rem', fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>6. Limitation of Liability</h3>
-            <p>CraftCV is provided "as is" without warranties. We are not responsible for job application outcomes, AI-generated inaccuracies, or data loss. Maximum liability is limited to any amount paid in the last 30 days.</p>
+            <p>Ready Candidate is provided "as is" without warranties. We are not responsible for job application outcomes, AI-generated inaccuracies, or data loss. Maximum liability is limited to any amount paid in the last 30 days.</p>
           </section>
 
           <section>

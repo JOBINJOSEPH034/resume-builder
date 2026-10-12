@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../AuthContext.jsx';
 import { Crown, Download, Tag, LogOut, X, User, ChevronRight, Star, BarChart2 } from 'lucide-react';
 
-export default function ProfileModal({ onClose, showToast }) {
+export default function ProfileModal({ onClose, showToast, onPlans }) {
   const { user, applyPromoCode, logout, upgradeToPro, deleteAccount } = useAuth();
   const [promoCode, setPromoCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -11,9 +11,10 @@ export default function ProfileModal({ onClose, showToast }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const isPro = user?.plan === 'pro';
+  const isStarter = user?.plan === 'starter';
   const downloadsUsed = user?.downloads_used || 0;
-  const downloadLimit = user?.download_limit ?? 2;  // from API, not hardcoded
-  const downloadPct = Math.min((downloadsUsed / (downloadLimit || 2)) * 100, 100);
+  const downloadLimit = user?.download_limit ?? 5;
+  const downloadPct = Math.min((downloadsUsed / (downloadLimit || 5)) * 100, 100);
 
   const handleApplyPromo = async (e) => {
     e.preventDefault();
@@ -102,9 +103,11 @@ export default function ProfileModal({ onClose, showToast }) {
               <div style={{ fontSize: '.68rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>Current Plan</div>
               <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-.03em', fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', gap: 7 }}>
                 {isPro ? (
-                  <><Star size={16} fill="var(--yellow)" color="var(--yellow)" /> <span style={{ color: 'var(--yellow)' }}>Pro Member</span></>
+                  <><Star size={16} fill="var(--yellow)" color="var(--yellow)" /> <span style={{ color: 'var(--yellow)' }}>Pro Member (₹499)</span></>
+                ) : isStarter ? (
+                  <><User size={15} color="var(--accent)" /> <span style={{ color: 'var(--ink)' }}>Starter Plan (₹199)</span></>
                 ) : (
-                  <><User size={15} color="var(--muted)" /> <span style={{ color: 'var(--ink)' }}>Free Tier</span></>
+                  <><User size={15} color="var(--muted)" /> <span style={{ color: 'var(--ink)' }}>No Active Plan</span></>
                 )}
               </div>
             </div>
@@ -113,11 +116,10 @@ export default function ProfileModal({ onClose, showToast }) {
                 className="btn btn-sm btn-primary"
                 style={{ gap: 5 }}
                 onClick={() => {
-                  showToast('Opening mail client...', 'info', 3000);
-                  window.location.href = 'mailto:jobinjoseph034@gmail.com?subject=Upgrade to CraftCV Pro&body=Hi! I would like to upgrade my account to Pro.';
+                  onPlans?.();
                 }}
               >
-                <ChevronRight size={13} /> Upgrade
+                <ChevronRight size={13} /> {isStarter ? 'Upgrade to Pro' : 'View Plans'}
               </button>
             )}
           </div>

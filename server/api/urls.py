@@ -1,7 +1,17 @@
 from django.urls import path
-from . import views
+from . import views, workspace
 
 urlpatterns = [
+    path('workspace/config/', workspace.public_config),
+    path('tutorials/', workspace.tutorials),
+    path('resumes/', workspace.resumes),
+    path('resumes/<int:pk>/', workspace.resume_detail),
+    path('documents/', workspace.documents),
+    path('documents/<int:pk>/', workspace.document_detail),
+    path('workspace/generate/', workspace.generate),
+    path('payments/orders/', workspace.payment_order),
+    path('payments/verify/', workspace.payment_verify),
+    path('payments/webhook/', workspace.payment_webhook),
     # Auth
     path('auth/register/', views.register, name='register'),
     path('auth/login/', views.login_view, name='login'),

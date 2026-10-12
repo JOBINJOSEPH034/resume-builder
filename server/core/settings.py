@@ -109,16 +109,16 @@ DATABASES = {
     )
 }
 
-# Cache: Use DummyCache in serverless (Vercel) to prevent django-ratelimit crashes.
-# django-ratelimit requires a working cache backend; LocMemCache is wiped between
-# serverless invocations causing 500 errors on every rate-limited endpoint.
+# Per-process cache for development and a single backend instance.
+# Configure a shared cache for rate limits across multiple production instances.
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'ready-candidate',
     }
 }
 
-# Disable ratelimit in serverless environment (cache-backed limiting is unreliable)
+# Rate-limit failures must not crash the API.
 RATELIMIT_USE_CACHE = 'default'
 RATELIMIT_FAIL_OPEN = True  # If cache is unavailable, allow the request through
 
@@ -129,17 +129,18 @@ RATELIMIT_FAIL_OPEN = True  # If cache is unavailable, allow the request through
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
-    'https://*.vercel.app',
+    'http://localhost:5175',
+    'http://127.0.0.1:5175',
 ]
 _csrf_extra = [h.strip() for h in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if h.strip()]
 CSRF_TRUSTED_ORIGINS += _csrf_extra
 
 # Cross-origin cookie settings (required for SameSite=None to work)
 # Without these, the rf_session cookie is blocked on cross-origin requests.
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = 'Lax' if DEBUG else 'None'
+CSRF_COOKIE_SECURE = not DEBUG
 
 # CORS is handled exclusively by core.middleware.CORSMiddleware using an explicit
 # origin allowlist. CORS_ALLOW_ALL_ORIGINS must NOT be set to True as it allows

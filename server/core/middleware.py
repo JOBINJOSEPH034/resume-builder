@@ -1,5 +1,6 @@
 import os
 from django.http import HttpResponse
+from django.conf import settings
 
 
 # Origins that are explicitly allowed to make cross-origin credentialed requests.
@@ -10,9 +11,13 @@ _EXTRA_ORIGINS = [o.strip() for o in _RAW_ORIGINS.split(',') if o.strip()]
 ALLOWED_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'http://localhost:5175',
+    'http://127.0.0.1:5175',
     'http://localhost:3000',
     *_EXTRA_ORIGINS,
 ]
+if settings.DEBUG:
+    ALLOWED_ORIGINS += [f'http://{host}:{port}' for host in ('localhost', '127.0.0.1') for port in range(5173, 5191)]
 
 
 class CORSMiddleware:
@@ -40,11 +45,7 @@ class CORSMiddleware:
     def _add_cors_headers(self, request, response):
         origin = request.META.get('HTTP_ORIGIN', '')
 
-        # Only allow pre-approved origins. Also allow *.vercel.app dynamically.
-        is_allowed = (
-            origin in ALLOWED_ORIGINS
-            or (origin.startswith('https://') and origin.endswith('.vercel.app'))
-        )
+        is_allowed = origin in ALLOWED_ORIGINS
 
         if is_allowed:
             response['Access-Control-Allow-Origin'] = origin

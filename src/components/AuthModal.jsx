@@ -40,9 +40,9 @@ export default function AuthModal({ onClose, onSuccess }) {
           padding: 40, color: 'white', display: 'flex', flexDirection: 'column',
           justifyContent: 'center',
         }} className="auth-brand-side">
-          <div className="brand-icon" style={{ width: 48, height: 48, fontSize: '1.3rem', marginBottom: 20, boxShadow: 'none', background: 'rgba(255,255,255,0.18)', borderRadius: 14 }}>C</div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 900, lineHeight: 1.2, marginBottom: 12, fontFamily: 'Outfit, sans-serif', letterSpacing: '-.04em' }}>Build your future with CraftCV.</h2>
-          <p style={{ fontSize: '.87rem', opacity: 0.88, lineHeight: 1.6, fontWeight: 400 }}>Join thousands of professionals creating ATS-optimized resumes that actually land interviews.</p>
+          <div className="brand-icon" style={{ width: 48, height: 48, fontSize: '1.3rem', marginBottom: 20, boxShadow: 'none', background: 'rgba(255,255,255,0.18)', borderRadius: 14 }}>RC</div>
+          <h2 style={{ fontSize: '1.75rem', fontWeight: 900, lineHeight: 1.2, marginBottom: 12, fontFamily: 'Outfit, sans-serif', letterSpacing: '-.04em' }}>Build your future with Ready Candidate.</h2>
+          <p style={{ fontSize: '.87rem', opacity: 0.88, lineHeight: 1.6, fontWeight: 400 }}>Bring your resume, LinkedIn profile and cover letters together in one personal workspace.</p>
         </div>
 
         {/* Form Side */}

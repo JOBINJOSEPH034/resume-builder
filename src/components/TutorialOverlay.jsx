@@ -29,7 +29,7 @@ const STEPS = [
   {
     targetId: null,
     title: '🎯 Job Description Matching',
-    body: 'In Builder mode, open "Job Description" from the sidebar. Paste the full JD and CraftCV will extract keywords and highlight exactly which ones are missing from your resume.',
+    body: 'In Builder mode, open "Job Description" from the sidebar. Paste the full JD and Ready Candidate will extract keywords and highlight exactly which ones are missing from your resume.',
     placement: null,
   },
   {

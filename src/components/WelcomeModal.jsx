@@ -20,7 +20,7 @@ const STEPS = [
   {
     icon: <Target size={22} strokeWidth={1.8} />,
     title: 'Paste the Job Description',
-    desc: 'Open "Job Description" from the sidebar and paste the full JD. CraftCV will extract keywords and show you exactly which ones are missing from your resume — boosting your ATS score.',
+    desc: 'Open "Job Description" from the sidebar and paste the full JD. Ready Candidate will extract keywords and show you exactly which ones are missing from your resume — boosting your ATS score.',
   },
   {
     icon: <Briefcase size={22} strokeWidth={1.8} />,
@@ -35,7 +35,7 @@ const STEPS = [
   {
     icon: <Download size={22} strokeWidth={1.8} />,
     title: 'Download Your PDF',
-    desc: 'Click "Download PDF" in the top bar when you\'re happy. Free plan includes 2 downloads. Use a Promo Code in your Profile (⚙️ button) to unlock unlimited downloads on Pro.',
+    desc: 'Click "Download PDF" in the top bar when you\'re happy. Starter plan includes 5 downloads and 5 ATS reports. Upgrade to Pro (₹499) for unlimited downloads, LinkedIn Studio & AI tools.',
   },
 ];
 
@@ -79,7 +79,7 @@ export default function WelcomeModal({ userName, onClose }) {
           flexShrink: 0,
         }}>
           <div style={{ fontSize: '.72rem', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', opacity: .8, marginBottom: 8 }}>
-            Welcome to CraftCV
+            Welcome to Ready Candidate
           </div>
           <h2 style={{ fontSize: '1.6rem', fontWeight: 900, letterSpacing: '-.04em', marginBottom: 4, fontFamily: 'Outfit, sans-serif' }}>
             Hi {userName?.split(' ')[0] || 'there'}! 👋
@@ -215,7 +215,7 @@ export default function WelcomeModal({ userName, onClose }) {
           background: 'var(--surface2)',
         }}>
           <span style={{ fontSize: '.7rem', color: 'var(--muted)' }}>
-            © {new Date().getFullYear()} CraftCV — Powered by <strong style={{ color: 'var(--ink2)' }}>Jobin Joseph</strong>
+            © {new Date().getFullYear()} Ready Candidate — Powered by <strong style={{ color: 'var(--ink2)' }}>Jobin Joseph</strong>
           </span>
           <button
             onClick={() => { setStep(STEPS.length - 1); }}

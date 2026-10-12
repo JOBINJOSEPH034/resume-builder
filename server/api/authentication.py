@@ -1,5 +1,6 @@
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.exceptions import AuthenticationFailed
+from urllib.parse import urlsplit
 
 class CookieTokenAuthentication(TokenAuthentication):
     """
@@ -10,6 +11,13 @@ class CookieTokenAuthentication(TokenAuthentication):
 
     def authenticate(self, request):
         cookie_token = request.COOKIES.get('rf_session')
+        if request.method not in ('GET', 'HEAD', 'OPTIONS'):
+            origin = request.headers.get('Origin')
+            if origin:
+                from core.middleware import ALLOWED_ORIGINS
+                same_origin = urlsplit(origin).netloc == request.get_host() and urlsplit(origin).scheme == request.scheme
+                if not same_origin and origin not in ALLOWED_ORIGINS:
+                    raise AuthenticationFailed('Untrusted request origin.')
         
         try:
             if cookie_token:

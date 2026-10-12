@@ -166,9 +166,13 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
 
   const handleOptimize = async () => {
     const isPro = user?.plan === 'pro';
-    const isFreeWithOffer = offer?.is_active && offer?.ai_optimize_free;
 
-    if (!isPro && !isFreeWithOffer) {
+    if (!user) {
+      alert('Please Login or Sign Up to use AI features.');
+      return;
+    }
+
+    if (!isPro) {
       setShowUpgradeModal(true);
       return;
     }
@@ -315,18 +319,20 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowUpgradeModal(false)}>
           <div className="modal" style={{ maxWidth: 440, textAlign: 'center' }}>
             <div style={{ fontSize: '3rem', margin: '10px 0 20px', display: 'flex', justifyContent: 'center' }}>
-              <Lock size={48} strokeWidth={1.4} color="var(--purple)" />
+              <Lock size={48} strokeWidth={1.4} color="var(--accent)" />
             </div>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: 10, fontFamily: 'Outfit, sans-serif', letterSpacing: '-.03em' }}>Premium AI Feature</h3>
-            <p style={{ color: 'var(--muted)', fontSize: '.9rem', lineHeight: 1.5, marginBottom: 24 }}>
-              AI Optimization is currently available exclusively during active promotional periods or via ResumeForge Pro.
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: 8, fontFamily: 'Outfit, sans-serif', letterSpacing: '-.03em' }}>
+              Exclusive Pro AI Feature
+            </h3>
+            <p style={{ color: 'var(--muted)', fontSize: '.88rem', lineHeight: 1.5, marginBottom: 20 }}>
+              AI Bullet Optimization and smart keyword alignment are exclusively available on the ₹499 Ready Candidate Pro plan.
             </p>
             
-            <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px', marginBottom: 24 }}>
-              <div style={{ fontWeight: 800, color: 'var(--ink)', fontFamily: 'Outfit, sans-serif' }}>CraftCV Pro</div>
-              <div style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.4rem', margin: '4px 0' }}>₹499<span style={{ fontSize: '.8rem', color: 'var(--muted)', fontWeight: 600 }}>/mo</span></div>
-              <div style={{ color: 'var(--ink2)', fontSize: '.8rem', fontWeight: 600, marginTop: 4 }}>
-                Payments Integration Coming Soon!
+            <div style={{ background: 'var(--surface2)', border: '1px solid var(--accent-mid)', borderRadius: 12, padding: '18px', marginBottom: 20 }}>
+              <div style={{ fontWeight: 800, color: 'var(--ink)', fontFamily: 'Outfit, sans-serif' }}>Ready Candidate Pro</div>
+              <div style={{ color: 'var(--accent)', fontWeight: 800, fontSize: '1.5rem', margin: '6px 0 2px' }}>₹499<span style={{ fontSize: '.75rem', color: 'var(--muted)', fontWeight: 600 }}> one-time</span></div>
+              <div style={{ color: 'var(--ink2)', fontSize: '.8rem', marginTop: 4 }}>
+                Unlocks AI bullet optimization, LinkedIn Studio, 50 saved resumes & unlimited ATS reports.
               </div>
             </div>
 

@@ -7,9 +7,11 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django_ratelimit.decorators import ratelimit
 from django.conf import settings
+from django.db import transaction
 import logging
 import os
 from .models import Transaction, Offer, UserProfile, PromoCode
+from .workspace import config, download_limit
 from openai import OpenAI
 
 
@@ -60,8 +62,8 @@ def register(request):
         'rf_session', token.key,
         max_age=86400,     # expires in exactly 24 hours
         httponly=True,
-        secure=True,       # always secure (required for SameSite=None)
-        samesite='None',   # must be None for cross-origin cookie sending
+        secure=not settings.DEBUG,       # always secure (required for SameSite=None)
+        samesite='Lax' if settings.DEBUG else 'None',   # must be None for cross-origin cookie sending
     )
     return response
 
@@ -97,8 +99,8 @@ def login_view(request):
         'rf_session', token.key,
         max_age=86400,     # expires in exactly 24 hours
         httponly=True,
-        secure=True,       # always secure (required for SameSite=None)
-        samesite='None',   # must be None for cross-origin cookie sending
+        secure=not settings.DEBUG,       # always secure (required for SameSite=None)
+        samesite='Lax' if settings.DEBUG else 'None',   # must be None for cross-origin cookie sending
     )
     return response
 
@@ -121,33 +123,39 @@ def logout_view(request):
 def me(request):
     """Get current user info."""
     user = request.user
+    profile = getattr(user, 'profile', None)
+    plan = profile.plan if profile else 'free'
+    cfg = config()
+    dl_limit = None if plan == 'pro' else (cfg.starter_download_limit if plan == 'starter' else download_limit())
+    ats_limit = None if plan == 'pro' else (cfg.starter_ats_limit if plan == 'starter' else cfg.free_ats_limit)
     return Response({
         'id': user.id,
         'email': user.email,
         'name': f"{user.first_name} {user.last_name}".strip() or user.email,
-        'plan': user.profile.plan if hasattr(user, 'profile') else 'free',
-        'downloads_used': user.profile.downloads_used if hasattr(user, 'profile') else 0,
-        'download_limit': 2,  # free plan limit exposed to frontend
-        'ats_reports_used': user.profile.ats_reports_used if hasattr(user, 'profile') else 0,
-        'ats_report_limit': 3,
+        'plan': plan,
+        'downloads_used': profile.downloads_used if profile else 0,
+        'download_limit': dl_limit,
+        'ats_reports_used': profile.ats_reports_used if profile else 0,
+        'ats_report_limit': ats_limit,
+        'can_use_linkedin': plan == 'pro',
+        'can_use_ai': plan == 'pro',
     })
 
 
 @ratelimit(key='user_or_ip', rate='20/m', block=True)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def track_download(request):
     """
     Called when a user downloads their resume as PDF.
-    Checks the plan limit for free users, increments counter, and returns
+    Checks the plan limit for starter/free users, increments counter, and returns
     the updated usage so the frontend can keep the UI in sync.
     """
     user = request.user
-    profile = getattr(user, 'profile', None)
+    profile = UserProfile.objects.select_for_update().filter(user=user).first()
     if not profile:
         return Response({'error': 'Profile not found.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    FREE_LIMIT = 2
 
     # Pro users have unlimited downloads — just acknowledge
     if profile.plan == 'pro':
@@ -157,13 +165,16 @@ def track_download(request):
             'download_limit': None,  # unlimited
         })
 
-    # Free users: enforce limit
-    if profile.downloads_used >= FREE_LIMIT:
+    cfg = config()
+    user_limit = cfg.starter_download_limit if profile.plan == 'starter' else download_limit()
+
+    # Enforce limit for non-pro
+    if profile.downloads_used >= user_limit:
         return Response({
             'allowed': False,
             'downloads_used': profile.downloads_used,
-            'download_limit': FREE_LIMIT,
-            'error': f'You have used all {FREE_LIMIT} free downloads. Upgrade to Pro for unlimited PDF downloads.',
+            'download_limit': user_limit,
+            'error': f'You have used all {user_limit} PDF downloads on your {profile.plan.title()} plan. Upgrade to Pro for unlimited PDF downloads.',
         }, status=status.HTTP_402_PAYMENT_REQUIRED)
 
     # Increment and save
@@ -173,7 +184,7 @@ def track_download(request):
     return Response({
         'allowed': True,
         'downloads_used': profile.downloads_used,
-        'download_limit': FREE_LIMIT,
+        'download_limit': user_limit,
     })
 
 
@@ -279,41 +290,17 @@ llm_model = os.getenv("LLM_MODEL", "llama3-8b-8192")
 @permission_classes([IsAuthenticated])
 def optimize_resume(request):
     """
-    Takes the user's resume and JD, checks if free offer allows it or a valid
-    transaction exists, then rewrites bullet points using Gemini.
+    Takes the user's resume and JD, checks if user is on Pro plan,
+    then rewrites bullet points using LLM.
     """
+    if not config().ai_enabled:
+        return Response({'error': 'AI assistance is disabled by the administrator.'}, status=403)
+    if not (hasattr(request.user, 'profile') and request.user.profile.plan == 'pro'):
+        return Response({'error': 'AI Resume Optimization is exclusively available on the ₹499 Pro plan.'}, status=status.HTTP_403_FORBIDDEN)
     try:
         data = request.data
-        transaction_id = data.get('transaction_id')
         resume_data = data.get('resumeData', {})
         job_desc = data.get('jobDesc', '')
-
-        # Check access: Pro user, free offer, OR valid transaction
-        access_granted = False
-        
-        if hasattr(request.user, 'profile') and request.user.profile.plan == 'pro':
-            access_granted = True
-        else:
-            try:
-                offer = Offer.objects.get(is_active=True)
-                if offer.ai_optimize_free:
-                    access_granted = True
-            except Offer.DoesNotExist:
-                pass
-
-        if not access_granted:
-            if transaction_id:
-                try:
-                    # SECURITY: Always filter by request.user to prevent IDOR —
-                    # a user must own the transaction they're redeeming.
-                    txn = Transaction.objects.get(id=transaction_id, user=request.user)
-                    if txn.status != 'captured':
-                        return Response({'error': 'Payment not completed.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
-                    access_granted = True
-                except Transaction.DoesNotExist:
-                    return Response({'error': 'Invalid transaction ID.'}, status=status.HTTP_404_NOT_FOUND)
-            else:
-                return Response({'error': 'No active free offer. Payment required.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
 
         if not llm_api_key and not llm_base_url.startswith("http://localhost"):
             return Response({'error': 'LLM API not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -353,9 +340,13 @@ def optimize_resume(request):
 @permission_classes([IsAuthenticated])
 def parse_resume(request):
     """
-    Takes extracted resume text and uses Gemini to parse it into a structured JSON
+    Takes extracted resume text and uses LLM to parse it into a structured JSON
     format that matches the frontend's initData schema.
     """
+    if not config().ai_enabled:
+        return Response({'error': 'AI assistance is disabled by the administrator.'}, status=403)
+    if not (hasattr(request.user, 'profile') and request.user.profile.plan == 'pro'):
+        return Response({'error': 'AI Resume Parsing is exclusively available on the ₹499 Pro plan.'}, status=status.HTTP_403_FORBIDDEN)
     try:
         data = request.data
         resume_text = data.get('text', '')
@@ -525,17 +516,19 @@ def run_migrations(request):
 @ratelimit(key='user_or_ip', rate='20/m', block=True)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@transaction.atomic
 def track_ats(request):
     """
     Called when a user views their ATS report.
     Free users get 3 views.
     """
     user = request.user
-    profile = getattr(user, 'profile', None)
+    profile = UserProfile.objects.select_for_update().filter(user=user).first()
     if not profile:
         return Response({'error': 'Profile not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    limit = 3
+    cfg = config()
+    user_limit = cfg.starter_ats_limit if profile.plan == 'starter' else cfg.free_ats_limit
 
     if profile.plan == 'pro':
         return Response({
@@ -544,12 +537,12 @@ def track_ats(request):
             'ats_report_limit': None
         })
 
-    if profile.ats_reports_used >= limit:
+    if profile.ats_reports_used >= user_limit:
         return Response({
             'allowed': False,
             'ats_reports_used': profile.ats_reports_used,
-            'ats_report_limit': limit,
-            'error': f'You have used all {limit} free ATS reports. Upgrade to Pro for unlimited reports.',
+            'ats_report_limit': user_limit,
+            'error': f'You have used all {user_limit} ATS reports on your {profile.plan.title()} plan. Upgrade to Pro for unlimited reports.',
         }, status=status.HTTP_402_PAYMENT_REQUIRED)
 
     profile.ats_reports_used += 1
@@ -558,5 +551,5 @@ def track_ats(request):
     return Response({
         'allowed': True,
         'ats_reports_used': profile.ats_reports_used,
-        'ats_report_limit': limit,
+        'ats_report_limit': user_limit,
     })

@@ -127,7 +127,7 @@ export function AuthProvider({ children }) {
       }
       return data;
     } catch {
-      return { allowed: true }; // fail-open: don't block download on network error
+      return { allowed: false, error: 'Download access could not be checked. Please try again.' };
     }
   };
 
@@ -151,7 +151,7 @@ export function AuthProvider({ children }) {
       }
       return data;
     } catch {
-      return { allowed: true }; // fail-open
+      return { allowed: false, error: 'ATS access could not be checked. Please try again.' };
     }
   };
 

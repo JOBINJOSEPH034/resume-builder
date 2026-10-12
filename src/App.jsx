@@ -4,6 +4,7 @@ import { initData, SECTIONS, isDone, calcBaseScore, matchKeywords, extractKeywor
 import { useLocalStorage, useToast, useTheme } from './hooks.js';
 import { ToastContainer } from './components/UI.jsx';
 import ResumePreview from './components/ResumePreview.jsx';
+import ReadyWorkspace from './components/ReadyWorkspace.jsx';
 import { PersonalSection, SummarySection, ExperienceSection,
   EducationSection, SkillsSection, ProjectsSection,
   CertificationsSection, LanguagesSection, CustomSection
@@ -67,9 +68,11 @@ function NavIcon({ name, size = 16 }) {
 }
 
 export default function App() {
-  const [data, setData] = useLocalStorage('rf_resume_v2', initData);
+  const [data, setData] = useState(initData);
+  const [workspacePage, setWorkspacePage] = useState('dashboard');
   const [active, setActive] = useState('personal');
   const [zoom, setZoom] = useState(0.56);
+  const previewPanelRef = useRef(null);
   const [template, setTemplate] = useState('classic');
   const [jobDesc, setJobDesc] = useState('');
   const [matchedKeywords, setMatchedKeywords] = useState([]);
@@ -96,6 +99,19 @@ export default function App() {
   const { theme, toggle: toggleTheme } = useTheme();
   const { user, offer, logout, upgradeToPro, trackDownload, trackAts } = useAuth();
 
+  // Fit the A4 sheet into the available desktop preview space.
+  useEffect(() => {
+    const panel = previewPanelRef.current;
+    if (!panel || workspacePage !== 'resume' || isMobile) return;
+    const fit = () => {
+      if (panel.clientWidth > 100) setZoom(Math.min(0.56, Math.floor(((panel.clientWidth - 32) / A4_W_PX) * 100) / 100));
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [workspacePage, isMobile]);
+
   // Splash screen timer
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
@@ -116,7 +132,7 @@ export default function App() {
       setAnalyzerTab('import');
       setMatchedKeywords([]);
     }
-  }, [user]);
+  }, [user?.id]);
 
   // ── Global Escape key: close any open modal ──
   useEffect(() => {
@@ -267,10 +283,10 @@ export default function App() {
           setShowAtsModal(true);
           const remaining = res.ats_report_limit - res.ats_reports_used;
           if (remaining >= 0) {
-            showToast(`ATS Report unlocked (${remaining} free uses remaining)`, 'info', 4000);
+            showToast(`ATS Report unlocked (${remaining} uses remaining)`, 'info', 4000);
           }
         } else {
-          showToast(res.error || 'ATS Report limit reached. Upgrade to Pro.', 'error');
+          showToast(res.error || 'ATS Report limit reached. Upgrade to Pro for unlimited reports.', 'error');
         }
       } catch { 
         showToast('Error tracking ATS usage', 'error'); 
@@ -278,7 +294,7 @@ export default function App() {
       }
     } else {
       showToast('Please log in or register to view your ATS Report', 'info');
-      setShowAuth(true);
+      setShowAuthModal(true);
     }
   };
 
@@ -338,22 +354,20 @@ export default function App() {
 
       {/* ── SPLASH SCREEN ── */}
       <div className={`splash-screen ${!showSplash ? 'hidden' : ''}`}>
-        <div className="splash-logo">C</div>
-        <div className="splash-text">Craft<span>CV</span></div>
+        <div className="splash-logo">RC</div>
+        <div className="splash-text">Ready <span>Candidate</span></div>
         <div className="splash-sub">ATS-Optimized Builder</div>
       </div>
 
-      <div className="app" style={{ pointerEvents: showSplash ? 'none' : 'auto' }}>
-      {/* ── AUTH INTERCEPTOR (locks interaction if not logged in) ── */}
-      {!user && !showSplash && !showAuthModal && (
-        <div className="auth-interceptor" onClickCapture={(e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          setShowAuthModal(true);
-        }}>
-          {/* Invisible overlay that captures all clicks */}
-        </div>
-      )}
+      <div className="app rc-app" style={{ pointerEvents: showSplash ? 'none' : 'auto' }}>
+      <ReadyWorkspace page={workspacePage} setPage={setWorkspacePage} data={data} template={template}
+        onLoad={item => { setData(item.content_json); setTemplate(item.template); setAppMode('BUILDER'); setActive('personal'); }}
+        onNew={() => { setData(structuredClone(initData)); setTemplate('classic'); setAppMode('BUILDER'); setActive('personal'); }}
+        onImport={() => { setWorkspacePage('resume'); setActive('import'); setAppMode('BUILDER'); }}
+        onAccount={() => setShowProfileModal(true)} onSignIn={() => setShowAuthModal(true)}
+        onPreview={() => setShowPreviewModal(true)} onTutorial={() => { setWorkspacePage('resume'); setShowTutorial(true); }}
+        theme={theme} toggleTheme={toggleTheme} notify={showToast} />
+      <div className="rc-builder" hidden={workspacePage !== 'resume'}>
 
       {/* ── TOP BAR ── */}
       <div className="topbar">
@@ -363,9 +377,9 @@ export default function App() {
         </button>
 
         <div className="topbar-brand">
-          <div className="brand-icon">C</div>
+          <div className="brand-icon">RC</div>
           <div>
-            <div className="brand-name">Craft<span>CV</span></div>
+            <div className="brand-name">Ready <span>Candidate</span></div>
             <div className="brand-tagline">ATS-Optimized Builder</div>
           </div>
         </div>
@@ -455,7 +469,7 @@ export default function App() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div className="brand-icon" style={{ width: 32, height: 32, fontSize: '.8rem', borderRadius: 9 }}>C</div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: '.9rem', color: 'var(--ink)', fontFamily: 'Outfit, sans-serif', lineHeight: 1.1 }}>CraftCV</div>
+                    <div style={{ fontWeight: 800, fontSize: '.9rem', color: 'var(--ink)', fontFamily: 'Outfit, sans-serif', lineHeight: 1.1 }}>Ready Candidate</div>
                     <div style={{ fontSize: '.65rem', color: 'var(--muted)' }}>Menu</div>
                   </div>
                 </div>
@@ -680,7 +694,7 @@ export default function App() {
         </div>
 
         {/* ── PREVIEW PANEL ── */}
-        <div className="preview-panel">
+        <div className="preview-panel" ref={previewPanelRef}>
           <div className="preview-toolbar">
             <span className="preview-label">{appMode === 'ANALYZER' ? 'Uploaded Resume' : 'Live Preview'}</span>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -726,7 +740,7 @@ export default function App() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 8, fontSize: '.67rem', color: 'var(--muted)', flexWrap: 'wrap', padding: '0 12px',
         }}>
-          <span>© {new Date().getFullYear()} CraftCV</span>
+          <span>© {new Date().getFullYear()} Ready Candidate</span>
           <span style={{ opacity: .4 }}>·</span>
           <span>Powered by <strong style={{ color: 'var(--ink2)', fontWeight: 700 }}>Jobin Joseph</strong></span>
           <span style={{ opacity: .4 }}>·</span>
@@ -796,6 +810,8 @@ export default function App() {
           )}
         </div>
       </nav>
+
+      </div>{/* end resume editor */}
 
       {/* ── ATS REPORT MODAL ── */}
       {showAtsModal && (
@@ -1002,6 +1018,7 @@ export default function App() {
         <ProfileModal 
           onClose={() => setShowProfileModal(false)}
           showToast={showToast}
+          onPlans={() => { setShowProfileModal(false); setWorkspacePage('account'); }}
         />
       )}
 
@@ -1045,7 +1062,7 @@ export default function App() {
             setShowWelcome(false);
             showToast(`Welcome aboard, ${welcomeName?.split(' ')[0] || 'friend'}! 🎉`, 'success');
             // Launch tutorial after a short delay so the modal fully unmounts
-            setTimeout(() => setShowTutorial(true), 400);
+            setTimeout(() => { setWorkspacePage('resume'); setShowTutorial(true); }, 400);
           }}
         />
       )}

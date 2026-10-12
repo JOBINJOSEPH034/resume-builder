@@ -1,7 +1,40 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import UserProfile, Offer, Resume, Transaction, PromoCode
+from .models import UserProfile, Offer, Resume, Transaction, PromoCode, WorkspaceDocument, TutorialVideo, WorkspaceSettings
+
+admin.site.site_header = 'Ready Candidate Administration'
+admin.site.site_title = 'Ready Candidate'
+admin.site.index_title = 'Manage your workspace'
+
+
+@admin.register(WorkspaceSettings)
+class WorkspaceSettingsAdmin(admin.ModelAdmin):
+    fieldsets = (
+        ('Dashboard', {'fields': ('dashboard_title', 'dashboard_description', 'announcement', 'support_email')}),
+        ('Plans & Pricing', {'fields': ('starter_price', 'pro_price')}),
+        ('Plan limits', {'fields': ('starter_resume_limit', 'pro_resume_limit', 'starter_ats_limit', 'starter_download_limit', 'free_download_limit', 'free_ats_limit', 'free_resume_limit')}),
+        ('Integrations', {'fields': ('ai_enabled', 'payments_enabled')}),
+    )
+
+    def has_add_permission(self, request):
+        return not WorkspaceSettings.objects.exists() and super().has_add_permission(request)
+
+
+@admin.register(TutorialVideo)
+class TutorialVideoAdmin(admin.ModelAdmin):
+    list_display = ('title', 'section', 'position', 'is_active')
+    list_editable = ('position', 'is_active')
+    list_filter = ('section', 'is_active')
+    search_fields = ('title', 'description')
+
+
+@admin.register(WorkspaceDocument)
+class WorkspaceDocumentAdmin(admin.ModelAdmin):
+    list_display = ('title', 'user', 'kind', 'updated_at')
+    list_filter = ('kind',)
+    search_fields = ('title', 'user__email')
+    readonly_fields = ('updated_at',)
 
 
 # ── Inline UserProfile inside User admin ──────────────────────────────────────
@@ -9,7 +42,7 @@ class UserProfileInline(admin.StackedInline):
     model = UserProfile
     can_delete = False
     verbose_name_plural = 'Profile'
-    fields = ('plan', 'downloads_used', 'created_at')
+    fields = ('plan', 'downloads_used', 'ats_reports_used', 'created_at')
     readonly_fields = ('created_at',)
 
 
@@ -62,7 +95,7 @@ class PromoCodeAdmin(admin.ModelAdmin):
 # ── Resume admin ──────────────────────────────────────────────────────────────
 @admin.register(Resume)
 class ResumeAdmin(admin.ModelAdmin):
-    list_display = ('id', 'get_user_email', 'created_at', 'updated_at')
+    list_display = ('title', 'template', 'get_user_email', 'created_at', 'updated_at')
     list_filter = ('created_at',)
     search_fields = ('user__email',)
     readonly_fields = ('created_at', 'updated_at')
@@ -76,8 +109,8 @@ class ResumeAdmin(admin.ModelAdmin):
 # ── Transaction admin ─────────────────────────────────────────────────────────
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'get_user_email', 'amount', 'currency', 'status', 'created_at')
-    list_filter = ('status', 'currency')
+    list_display = ('id', 'get_user_email', 'plan', 'amount', 'currency', 'status', 'created_at')
+    list_filter = ('plan', 'status', 'currency')
     search_fields = ('user__email', 'razorpay_order_id', 'razorpay_payment_id')
     readonly_fields = ('created_at',)
     ordering = ('-created_at',)
