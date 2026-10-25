@@ -1,3 +1,5 @@
+import { templateCatalog } from '../templateCatalog.js';
+import CatalogResume from './CatalogResume.jsx';
 import { fmtMonth } from '../utils.js';
 
 // Helper to render shared contact info
@@ -600,6 +602,8 @@ export default function ResumePreview({ data, template }) {
     startup: StartupResume,
     elegant: ElegantResume,
   };
+  const model = templateCatalog.find(item => item.id === template);
+  if (model && !model.original) return <div className="resume-wrap"><CatalogResume data={data} model={model} /></div>;
   const Template = templates[template] || ClassicResume;
   return (
     <div className="resume-wrap">

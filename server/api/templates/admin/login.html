@@ -1,0 +1,2 @@
+{% extends "admin/login.html" %}
+{% block content %}{{ block.super }}<p style="text-align:center;margin:20px 0"><a href="{% url 'admin-password-recovery' %}">Forgot password? Verify your email</a></p>{% endblock %}

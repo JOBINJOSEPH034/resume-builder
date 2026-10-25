@@ -144,7 +144,7 @@ export function ImportPanel({ onImport, onImportFile, onToast }) {
 }
 
 // ── Job Description Analyzer ─────────────────────────────────────
-export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, text = null, onImport }) {
+export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, text = null, onImport, onToast }) {
   const [showAll, setShowAll] = useState(false);
   const keywords = extractKeywords(jobDesc);
   const matches = matchKeywords(keywords, data, text);
@@ -168,7 +168,7 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
     const isPro = user?.plan === 'pro';
 
     if (!user) {
-      alert('Please Login or Sign Up to use AI features.');
+      onToast?.('Sign in to use AI assistance with your Pro plan.', 'info');
       return;
     }
 
@@ -179,7 +179,7 @@ export function JobDescSection({ jobDesc, setJobDesc, data, onKeywordsChange, te
     
     if (!user) {
       // Must be logged in even for free offer
-      alert('Please Login or Sign Up to use AI features.');
+      onToast?.('Sign in to use AI assistance with your Pro plan.', 'info');
       return;
     }
 

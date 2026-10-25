@@ -12,6 +12,11 @@ AI availability, Pro pricing, offers/promos, users and transactions in Django.
 Career Path, interviews and job/application tracking are excluded.
 
 Frontend: React 19, Vite and CSS. Backend: Django and Django REST Framework.
+All 50 resume template models are available in Basic (₹199) and Pro (₹499).
+Unpaid visitors can preview the models. Pro also unlocks LinkedIn Studio,
+cover letters and AI services. Both prices are one-time purchases controlled
+in Django admin. Learning videos, written lessons and resource links are
+published through admin as well.
 AI: an OpenAI-compatible provider configured on the server. Payments: Razorpay
 with signature verification, captured-payment checks and signed webhooks.
 

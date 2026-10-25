@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { readableMessage } from './feedback.js';
 
 // ── useLocalStorage hook ─────────────────────────────────────────
 export function useLocalStorage(key, initialValue) {
@@ -27,12 +28,14 @@ export function useToast() {
   const [toasts, setToasts] = useState([]);
 
   const show = useCallback((message, type = 'info', duration = 3000) => {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message, type }]);
+    const id = crypto.randomUUID();
+    setToasts(prev => [...prev.slice(-3), { id, message: readableMessage(message), type }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration);
   }, []);
 
-  return { toasts, show };
+  const dismiss = useCallback(id=>setToasts(prev=>prev.filter(item=>item.id!==id)),[]);
+  useEffect(()=>{const receive=e=>show(e.detail.message,e.detail.type,e.detail.type==='error'?7000:4000);window.addEventListener('rc-notice',receive);return()=>window.removeEventListener('rc-notice',receive);},[show]);
+  return { toasts, show, dismiss };
 }
 
 // ── useTheme hook ────────────────────────────────────────────────

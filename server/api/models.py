@@ -5,7 +5,7 @@ from django.dispatch import receiver
 
 
 class UserProfile(models.Model):
-    PLAN_CHOICES = [('free', 'Free'), ('starter', 'Starter'), ('pro', 'Pro')]
+    PLAN_CHOICES = [('free', 'Preview only'), ('starter', 'Basic'), ('pro', 'Pro')]
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     plan = models.CharField(max_length=10, choices=PLAN_CHOICES, default='free')
     downloads_used = models.PositiveIntegerField(default=0)
@@ -105,7 +105,9 @@ class TutorialVideo(models.Model):
     title = models.CharField(max_length=180)
     section = models.CharField(max_length=20, choices=[('resume', 'Resume Studio'), ('linkedin', 'LinkedIn Studio'), ('cover', 'Cover Letters'), ('account', 'Account')])
     description = models.TextField(blank=True)
-    youtube_url = models.URLField()
+    youtube_url = models.URLField(blank=True)
+    material_url = models.URLField(blank=True, help_text='HTTPS link to a guide, PDF or learning resource.')
+    written_content = models.TextField(blank=True, help_text='Written lesson displayed in the learning library.')
     duration = models.CharField(max_length=30, blank=True, help_text='For example: 6 min')
     position = models.PositiveIntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -117,8 +119,12 @@ class TutorialVideo(models.Model):
         from urllib.parse import urlparse
         from django.core.exceptions import ValidationError
         url = urlparse(self.youtube_url)
-        if url.scheme != 'https' or url.hostname not in ('youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com'):
+        if self.youtube_url and (url.scheme != 'https' or url.hostname not in ('youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com')):
             raise ValidationError({'youtube_url': 'Use an HTTPS YouTube video link.'})
+        if self.material_url and urlparse(self.material_url).scheme != 'https':
+            raise ValidationError({'material_url': 'Use an HTTPS resource link.'})
+        if not (self.youtube_url or self.material_url or self.written_content):
+            raise ValidationError('Add a video, resource link or written lesson.')
 
     def __str__(self):
         return self.title
@@ -128,7 +134,7 @@ class WorkspaceSettings(models.Model):
     dashboard_title = models.CharField(max_length=180, default='Your next chapter starts here.')
     dashboard_description = models.TextField(default='A considered resume. A confident profile. Everything you need to introduce yourself well.')
     announcement = models.CharField(max_length=250, blank=True)
-    starter_price = models.PositiveIntegerField(default=199, help_text='INR for Starter plan.')
+    starter_price = models.PositiveIntegerField(default=199, help_text='INR for Basic plan.')
     pro_price = models.PositiveIntegerField(default=499, help_text='INR for Pro plan.')
     starter_resume_limit = models.PositiveIntegerField(default=5)
     pro_resume_limit = models.PositiveIntegerField(default=50)
@@ -138,7 +144,13 @@ class WorkspaceSettings(models.Model):
     free_ats_limit = models.PositiveIntegerField(default=3)
     free_resume_limit = models.PositiveIntegerField(default=5)
     payments_enabled = models.BooleanField(default=False)
+    resume_enabled = models.BooleanField(default=True)
+    linkedin_enabled = models.BooleanField(default=True)
+    cover_enabled = models.BooleanField(default=True)
+    learning_enabled = models.BooleanField(default=True)
     ai_enabled = models.BooleanField(default=True)
+    ai_model = models.CharField(max_length=120, blank=True, help_text='Optional model override. Otherwise uses LLM_MODEL on the server.')
+    ai_base_url = models.URLField(blank=True, help_text='Optional HTTPS OpenAI-compatible API endpoint. Keys remain in the server environment.')
     support_email = models.EmailField(blank=True)
 
     class Meta:
@@ -146,6 +158,22 @@ class WorkspaceSettings(models.Model):
 
     def __str__(self):
         return 'Ready Candidate workspace'
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.ai_base_url and not self.ai_base_url.startswith('https://'):
+            raise ValidationError({'ai_base_url': 'Use an HTTPS API endpoint.'})
+
+
+class PasswordRecovery(models.Model):
+    import uuid
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    code_hash = models.CharField(max_length=255)
+    reset_hash = models.CharField(max_length=255, blank=True)
+    expires_at = models.DateTimeField()
+    attempts = models.PositiveSmallIntegerField(default=0)
+    consumed = models.BooleanField(default=False)
 
 
 class Transaction(models.Model):

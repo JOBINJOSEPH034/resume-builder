@@ -1,3 +1,5 @@
+import { templateIds } from './templateCatalog.js';
+import { templateSample } from './templateSample.js';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { initData, SECTIONS, isDone, calcBaseScore, matchKeywords, extractKeywords, analyzeResumeText } from './utils.js';
@@ -5,6 +7,10 @@ import { useLocalStorage, useToast, useTheme } from './hooks.js';
 import { ToastContainer } from './components/UI.jsx';
 import ResumePreview from './components/ResumePreview.jsx';
 import ReadyWorkspace from './components/ReadyWorkspace.jsx';
+import ResumeAssistant from './components/ResumeAssistant.jsx';
+import TemplateGallery from './components/TemplateGallery.jsx';
+import FeedbackDialog from './components/FeedbackDialog.jsx';
+import { askConfirmation } from './feedback.js';
 import { PersonalSection, SummarySection, ExperienceSection,
   EducationSection, SkillsSection, ProjectsSection,
   CertificationsSection, LanguagesSection, CustomSection
@@ -70,9 +76,11 @@ function NavIcon({ name, size = 16 }) {
 export default function App() {
   const [data, setData] = useState(initData);
   const [workspacePage, setWorkspacePage] = useState('dashboard');
+  const [workspaceConfig, setWorkspaceConfig] = useState({});
   const [active, setActive] = useState('personal');
   const [zoom, setZoom] = useState(0.56);
   const previewPanelRef = useRef(null);
+  const formPanelRef = useRef(null);
   const [template, setTemplate] = useState('classic');
   const [jobDesc, setJobDesc] = useState('');
   const [matchedKeywords, setMatchedKeywords] = useState([]);
@@ -95,9 +103,19 @@ export default function App() {
   const [mobileTutStep, setMobileTutStep] = useLocalStorage('craftcv_mobile_tut_seq', 1); // 1 = step1, 2 = step2, 0 = done
   const [showSplash, setShowSplash] = useState(true);
   const isMobile = useIsMobile();
-  const { toasts, show: showToast } = useToast();
+  const { toasts, show: showToast, dismiss: dismissToast } = useToast();
   const { theme, toggle: toggleTheme } = useTheme();
   const { user, offer, logout, upgradeToPro, trackDownload, trackAts } = useAuth();
+  const canEditResume = ['starter','pro'].includes(user?.plan);
+  const requestEditing = async () => {
+    const accepted=await askConfirmation({kind:'plan',title:'Choose a plan to start your resume',message:'You’re viewing sample templates. Personal Info, Summary, Experience and the other editing sections unlock after you purchase Basic or Pro.',detail:`Basic ₹${workspaceConfig.starter_price||199} · Pro ₹${workspaceConfig.pro_price||499}. Both include all 50 resume templates.`,confirmLabel:'View plans',cancelLabel:'Keep previewing'});
+    if(accepted){setShowPreviewModal(false);setShowMobileSidebar(false);setWorkspacePage('account');}
+  };
+  const navigateSection = section => {
+    if(!canEditResume){requestEditing();return;}
+    setActive(section);setShowMobileSidebar(false);
+  };
+  useEffect(()=>{formPanelRef.current?.scrollTo({top:0,behavior:'instant'});},[active,appMode,analyzerTab]);
 
   // Fit the A4 sheet into the available desktop preview space.
   useEffect(() => {
@@ -138,6 +156,7 @@ export default function App() {
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== 'Escape') return;
+      if (document.querySelector('.rc-feedback-dialog[open]')) return;
       if (showAtsModal)     { setShowAtsModal(false);     return; }
       if (showPreviewModal) { setShowPreviewModal(false); return; }
       if (showAuthModal)    { setShowAuthModal(false);    return; }
@@ -241,8 +260,8 @@ export default function App() {
     setMatchedKeywords(kws);
   }, []);
 
-  const handleClear = () => {
-    if (confirm('Clear all resume data? This cannot be undone.')) {
+  const handleClear = async () => {
+    if (await askConfirmation({title:'Clear this resume?',message:'This removes the content in your current editor. Saved copies in your account will remain.',confirmLabel:'Clear editor',danger:true})) {
       setData(initData);
       setJobDesc('');
       setMatchedKeywords([]);
@@ -252,11 +271,12 @@ export default function App() {
 
   // Print — track download first, enforce free plan limit
   const handlePrint = async () => {
+    if(!canEditResume){requestEditing();return;}
     setShowPreviewModal(false);
     const result = await trackDownload();
     if (result.allowed === false) {
       showToast(
-        result.error || `You've used all your free downloads. Upgrade to Pro for unlimited PDF downloads.`,
+        result.error || `You've used all your Basic downloads. Upgrade to Pro for unlimited PDF downloads.`,
         'error',
         5000
       );
@@ -265,7 +285,7 @@ export default function App() {
     if (result.downloads_used !== undefined && result.download_limit) {
       const remaining = result.download_limit - result.downloads_used;
       if (remaining === 0) {
-        showToast('Last free download used! Upgrade to Pro for unlimited PDFs.', 'info', 4000);
+        showToast('Last Basic download used! Upgrade to Pro for unlimited PDFs.', 'info', 4000);
       }
     }
     setTimeout(() => window.print(), 100);
@@ -298,7 +318,7 @@ export default function App() {
     }
   };
 
-  const sectionProps = { data, onChange: setData, sections: SECTIONS, onNavigate: setActive, onPrint: () => setShowPreviewModal(true) };
+  const sectionProps = { data, onChange: setData, sections: SECTIONS, onNavigate: navigateSection, onPrint: () => setShowPreviewModal(true) };
   const sectionMap = {
     import: <ImportPanel onImport={handleImport} onImportFile={handleImportFile} onToast={showToast} />,
     jd: <JobDescSection jobDesc={jobDesc} setJobDesc={setJobDesc} data={data} onKeywordsChange={handleKeywordsChange} onImport={handleImport} onToast={showToast} />,
@@ -313,7 +333,7 @@ export default function App() {
     custom:         <CustomSection {...sectionProps} />,
   };
 
-  const templates = ['classic', 'modern', 'minimal', 'professional', 'executive', 'creative', 'tech', 'startup', 'elegant'];
+  const templates = templateIds;
 
   // Scaled preview dimensions
   const scaledW = Math.round(A4_W_PX * zoom);
@@ -335,7 +355,7 @@ export default function App() {
       setShowMobileSidebar(true);
       setMobileTutStep(0);
     } else {
-      setActive(tabId);
+      navigateSection(tabId);
       setAppMode('BUILDER');
     }
   };
@@ -347,7 +367,7 @@ export default function App() {
            Print CSS via visibility:hidden on body + visibility:visible on #print-area ── */}
       {createPortal(
         <div id="print-area">
-          <ResumePreview data={data} template={template} />
+          <ResumePreview data={['starter', 'pro'].includes(user?.plan) ? data : templateSample} template={template} />
         </div>,
         document.body
       )}
@@ -360,14 +380,14 @@ export default function App() {
       </div>
 
       <div className="app rc-app" style={{ pointerEvents: showSplash ? 'none' : 'auto' }}>
-      <ReadyWorkspace page={workspacePage} setPage={setWorkspacePage} data={data} template={template}
+      <ReadyWorkspace onRequestEditing={requestEditing} onConfig={setWorkspaceConfig} page={workspacePage} setPage={setWorkspacePage} data={data} template={template}
         onLoad={item => { setData(item.content_json); setTemplate(item.template); setAppMode('BUILDER'); setActive('personal'); }}
         onNew={() => { setData(structuredClone(initData)); setTemplate('classic'); setAppMode('BUILDER'); setActive('personal'); }}
-        onImport={() => { setWorkspacePage('resume'); setActive('import'); setAppMode('BUILDER'); }}
+        onImport={() => { if(!canEditResume){requestEditing();return;}setWorkspacePage('resume');setActive('import');setAppMode('BUILDER'); }}
         onAccount={() => setShowProfileModal(true)} onSignIn={() => setShowAuthModal(true)}
         onPreview={() => setShowPreviewModal(true)} onTutorial={() => { setWorkspacePage('resume'); setShowTutorial(true); }}
         theme={theme} toggleTheme={toggleTheme} notify={showToast} />
-      <div className="rc-builder" hidden={workspacePage !== 'resume'}>
+      <div className={`rc-builder ${canEditResume?'rc-editor-mode':'rc-preview-only'}`} hidden={workspacePage !== 'resume' || workspaceConfig.resume_enabled === false}>
 
       {/* ── TOP BAR ── */}
       <div className="topbar">
@@ -402,7 +422,7 @@ export default function App() {
           <button className="theme-toggle" onClick={toggleTheme} title="Toggle dark mode" aria-label="Toggle dark mode">
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
           </button>
-          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => setActive('import')} style={{ gap: 5 }}>
+          <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={() => navigateSection('import')} style={{ gap: 5 }}>
             <FolderInput size={14} /> Import
           </button>
           <button className="btn btn-sm btn-secondary topbar-hide-sm" onClick={handleClear}>Clear</button>
@@ -503,7 +523,7 @@ export default function App() {
                   <>
                     <div className="sidebar-section-label">Tools</div>
                     {ALL_SECTIONS.filter(s => s.special).map(s => (
-                      <button key={s.id} className={`nav-item special-nav${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
+                      <button key={s.id} className={`nav-item special-nav${active === s.id ? ' active' : ''}`} onClick={() => { navigateSection(s.id); setShowMobileSidebar(false); }}>
                         <span className="nav-icon"><NavIcon name={s.icon} /></span>
                         <span className="nav-label">{s.label}</span>
                         {s.id === 'jd' && jobDesc.length > 20 && (
@@ -513,7 +533,7 @@ export default function App() {
                     ))}
                     <div className="sidebar-section-label">Resume Sections</div>
                     {SECTIONS.map(s => (
-                      <button key={s.id} className={`nav-item${active === s.id ? ' active' : ''}`} onClick={() => { setActive(s.id); setShowMobileSidebar(false); }}>
+                      <button key={s.id} className={`nav-item${active === s.id ? ' active' : ''}`} onClick={() => { navigateSection(s.id); setShowMobileSidebar(false); }}>
                         <span className="nav-icon"><NavIcon name={s.icon} /></span>
                         <span className="nav-label">{s.label}</span>
                         {isDone(s.id, data)
@@ -572,7 +592,7 @@ export default function App() {
                 <button
                   key={s.id}
                   className={`nav-item special-nav${active === s.id ? ' active' : ''}`}
-                  onClick={() => setActive(s.id)}
+                  onClick={() => navigateSection(s.id)}
                 >
                   <span className="nav-icon"><NavIcon name={s.icon} /></span>
                   <span className="nav-label">{s.label}</span>
@@ -592,7 +612,7 @@ export default function App() {
                 <button
                   key={s.id}
                   className={`nav-item${active === s.id ? ' active' : ''}`}
-                  onClick={() => setActive(s.id)}
+                  onClick={() => navigateSection(s.id)}
                 >
                   <span className="nav-icon"><NavIcon name={s.icon} /></span>
                   <span className="nav-label">{s.label}</span>
@@ -643,7 +663,11 @@ export default function App() {
         </div>
 
         {/* ── FORM PANEL ── */}
-        <div className="form-panel">
+        <div className="form-panel" ref={formPanelRef}>
+          {!canEditResume && <TemplateGallery template={template} onPlans={requestEditing} onSelect={value=>{setTemplate(value);if(isMobile)setShowPreviewModal(true);}}/>}
+          {canEditResume&&isMobile&&appMode==='BUILDER'&&<div className="rc-mobile-section-picker"><label htmlFor="resume-section">Editing · {SECTIONS.findIndex(s=>s.id===active)>=0?`${SECTIONS.findIndex(s=>s.id===active)+1} of ${SECTIONS.length}`:'Resume tools'}</label><select id="resume-section" value={active} onChange={e=>navigateSection(e.target.value)}>{ALL_SECTIONS.map(s=><option value={s.id} key={s.id}>{s.label}</option>)}</select></div>}
+          <div inert={!['starter', 'pro'].includes(user?.plan) ? true : undefined} style={!['starter', 'pro'].includes(user?.plan) ? {display:'none'} : undefined}>
+          {user?.plan === 'pro' && appMode === 'BUILDER' && ['summary','experience','skills','jd'].includes(active) && <details className="rc-ai-disclosure" key={active}><summary>Pro AI assistance for this section</summary><ResumeAssistant key={active} data={data} onChange={setData} initialTask={active==='jd'?'resume_review':active} enabled={workspaceConfig.ai_enabled !== false}/></details>}
           {appMode === 'ANALYZER' ? (
              analyzerTab === 'import' ? (
                <ImportPanel onImport={handleImport} onImportFile={handleImportFile} onToast={showToast} />
@@ -693,6 +717,7 @@ export default function App() {
           )}
         </div>
 
+          </div>
         {/* ── PREVIEW PANEL ── */}
         <div className="preview-panel" ref={previewPanelRef}>
           <div className="preview-toolbar">
@@ -723,7 +748,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--muted)', fontSize: '.85rem', textAlign: 'center', padding: 40 }}>Upload a resume using the sidebar to see the preview here.</div>
             ) : (
               <div style={{ transform: `scale(${zoom})`, transformOrigin: 'top left', width: A4_W_PX }}>
-                <ResumePreview data={data} template={template} />
+                <ResumePreview data={['starter', 'pro'].includes(user?.plan) ? data : templateSample} template={template} />
               </div>
             )}
           </div>
@@ -984,7 +1009,7 @@ export default function App() {
                 <select className="f-select" style={{ padding: '4px 10px', fontSize: '.78rem', height: 'auto', fontWeight: 600, maxWidth: isMobile ? 110 : 'auto' }} value={template} onChange={e => setTemplate(e.target.value)}>
                   {templates.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                 </select>
-                {!isMobile && <button className="btn btn-primary btn-sm" onClick={handlePrint} style={{ gap: 5 }}><Download size={13} /> Download PDF</button>}
+                {!isMobile && <button className="btn btn-primary btn-sm" onClick={handlePrint} style={{ gap: 5 }}><Download size={13} /> {canEditResume?'Download PDF':'Unlock editing & downloads'}</button>}
                 <button className="modal-close" onClick={() => setShowPreviewModal(false)}><X size={16} strokeWidth={2} /></button>
               </div>
             </div>
@@ -998,7 +1023,7 @@ export default function App() {
             }}>
               <div style={{ width: mobileModalW, height: mobileModalH, overflow: 'hidden', flexShrink: 0 }}>
                 <div style={{ transform: `scale(${mobileModalZoom})`, transformOrigin: 'top left', width: A4_W_PX }}>
-                  <ResumePreview data={data} template={template} />
+                <ResumePreview data={['starter', 'pro'].includes(user?.plan) ? data : templateSample} template={template} />
                 </div>
               </div>
             </div>
@@ -1006,7 +1031,7 @@ export default function App() {
             {/* Mobile: download button at bottom */}
             {isMobile && (
               <button className="btn btn-primary w-full" onClick={handlePrint} style={{ justifyContent: 'center', gap: 8 }}>
-                <Download size={16} /> Download PDF
+                <Download size={16} /> {canEditResume?'Download PDF':'Choose a plan to use this template'}
               </button>
             )}
           </div>
@@ -1052,7 +1077,8 @@ export default function App() {
         />
       )}
 
-      <ToastContainer toasts={toasts} />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <FeedbackDialog/>
 
       {/* ── WELCOME / ONBOARDING MODAL ── */}
       {showWelcome && (

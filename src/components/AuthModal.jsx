@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../AuthContext.jsx';
+import PasswordRecovery from './PasswordRecovery.jsx';
+import { announce,readableMessage } from '../feedback.js';
 
 export default function AuthModal({ onClose, onSuccess }) {
   const { login, register } = useAuth();
@@ -7,6 +9,7 @@ export default function AuthModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({ first_name: '', last_name: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [recovery, setRecovery] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -24,7 +27,8 @@ export default function AuthModal({ onClose, onSuccess }) {
         onSuccess?.('register', name);
       }
     } catch (err) {
-      setError(err.message);
+      setError(readableMessage(err.message));
+      announce(err.message,'error');
     } finally {
       setLoading(false);
     }
@@ -54,7 +58,7 @@ export default function AuthModal({ onClose, onSuccess }) {
                 {tab === 'login' ? 'Welcome Back' : 'Create Account'}
               </div>
               <div style={{ fontSize: '.85rem', color: 'var(--muted)', marginTop: 4 }}>
-                {tab === 'login' ? 'Sign in to access your resumes.' : 'Start building for free.'}
+                {tab === 'login' ? 'Sign in to access your resumes.' : 'Preview the workspace, then choose a plan.'}
               </div>
             </div>
             <button className="modal-close" onClick={onClose} style={{ background: 'var(--surface2)' }}>✕</button>
@@ -73,7 +77,7 @@ export default function AuthModal({ onClose, onSuccess }) {
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {recovery ? <PasswordRecovery onBack={() => setRecovery(false)} /> : <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {tab === 'register' && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -115,11 +119,12 @@ export default function AuthModal({ onClose, onSuccess }) {
             <button className="btn btn-primary" type="submit" disabled={loading} style={{ marginTop: 8, padding: '12px', fontSize: '.9rem', justifyContent: 'center' }}>
               {loading ? 'Processing...' : tab === 'login' ? 'Sign In' : 'Create Account'}
             </button>
-          </form>
+          </form>}
+          {tab === 'login' && !recovery && <button className="rc-text-button" style={{marginTop:16}} onClick={() => setRecovery(true)}>Forgot password? Verify your email</button>}
 
           <div style={{ marginTop: 'auto', paddingTop: 24, textAlign: 'center', fontSize: '.8rem', color: 'var(--muted)' }}>
             {tab === 'login' ? (
-              <>Don't have an account? <button className="auth-switch-btn" onClick={() => { setTab('register'); setError(''); }}>Register free</button></>
+              <>Don't have an account? <button className="auth-switch-btn" onClick={() => { setTab('register'); setError(''); }}>Create account</button></>
             ) : (
               <>Already have an account? <button className="auth-switch-btn" onClick={() => { setTab('login'); setError(''); }}>Sign in</button></>
             )}

@@ -1,7 +1,12 @@
 from django.urls import path
-from . import views, workspace
+from . import views, workspace, recovery, ai
 
 urlpatterns = [
+    path('workspace/assist/', ai.assist),
+    path('workspace/linkedin/import/', ai.import_linkedin),
+    path('auth/recovery/request/', recovery.request_code),
+    path('auth/recovery/verify/', recovery.verify_code),
+    path('auth/recovery/reset/', recovery.reset_password),
     path('workspace/config/', workspace.public_config),
     path('tutorials/', workspace.tutorials),
     path('resumes/', workspace.resumes),

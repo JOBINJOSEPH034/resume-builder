@@ -1,0 +1,6 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% block title %}{{ title }} | Ready Candidate{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin/ready-candidate.css' %}">{% endblock %}
+{% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}"><span class="rc-admin-mark">RC</span> Ready Candidate <small>Administration</small></a></div>{% endblock %}
+{% block nav-global %}<a class="rc-admin-preview" href="{{ workspace_frontend_url }}" target="_blank" rel="noopener">Preview workspace ↗</a>{% endblock %}

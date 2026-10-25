@@ -1,0 +1,5 @@
+const originals = ['classic', 'modern', 'minimal', 'professional', 'executive', 'creative', 'tech', 'startup', 'elegant'];
+const names = ['folio', 'atlas', 'meridian', 'ledger', 'nordic', 'column', 'editorial', 'horizon', 'architect', 'scholar', 'contour', 'perspective', 'studio', 'precise', 'signature', 'civic', 'lattice', 'framework', 'terrace', 'summit', 'outline', 'journal', 'gridline', 'monograph', 'balance', 'crest', 'notebook', 'orbit', 'linear', 'beacon', 'mosaic', 'keystone', 'slate', 'canvas', 'vertex', 'portrait', 'anchor', 'interval', 'ribbon', 'milestone', 'journey'];
+const colors = ['#254f43', '#294c72', '#704a3b', '#514770', '#46515b', '#82622e', '#216568'];
+export const templateCatalog = [...originals.map(id => ({ id, name: id[0].toUpperCase() + id.slice(1), original: true })), ...names.map((id, index) => ({ id, name: id[0].toUpperCase() + id.slice(1), layout: index % 7, color: colors[Math.floor(index / 7)], serif: index % 3 === 0 }))];
+export const templateIds = templateCatalog.map(t => t.id);

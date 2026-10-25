@@ -17,18 +17,20 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from api.recovery import page as recovery_page
 
 
 def health_check(request):
-    return JsonResponse({'status': 'ok', 'service': 'CraftCV API'})
+    return JsonResponse({'status': 'ok', 'service': 'Ready Candidate API'})
 
 
 def test_view(request):
     """Simple endpoint to verify API is reachable and CORS is working."""
-    return JsonResponse({'message': 'working', 'service': 'CraftCV API', 'version': '1.0'})
+    return JsonResponse({'message': 'working', 'service': 'Ready Candidate API', 'version': '1.0'})
 
 
 urlpatterns = [
+    path('admin/password-recovery/', recovery_page, name='admin-password-recovery'),
     path('', health_check, name='health_check'),
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),

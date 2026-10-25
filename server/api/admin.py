@@ -10,11 +10,27 @@ admin.site.index_title = 'Manage your workspace'
 
 @admin.register(WorkspaceSettings)
 class WorkspaceSettingsAdmin(admin.ModelAdmin):
+    readonly_fields = ('integration_status',)
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+        for name, field in form.base_fields.items():
+            if name.startswith('starter_'):
+                field.label = field.label.replace('Starter', 'Basic')
+        return form
+
+    @admin.display(description='Server configuration')
+    def integration_status(self, obj):
+        from django.utils.html import format_html_join
+        from .integrations import integration_readiness
+        return format_html_join('', '<p><strong>{}</strong> — {}<br><small>{}</small></p>', ((label, 'Configured' if ready else 'Needs setup', detail) for label, ready, detail in integration_readiness()))
+
     fieldsets = (
         ('Dashboard', {'fields': ('dashboard_title', 'dashboard_description', 'announcement', 'support_email')}),
+        ('Workspace services', {'fields': ('resume_enabled', 'linkedin_enabled', 'cover_enabled', 'learning_enabled')}),
         ('Plans & Pricing', {'fields': ('starter_price', 'pro_price')}),
-        ('Plan limits', {'fields': ('starter_resume_limit', 'pro_resume_limit', 'starter_ats_limit', 'starter_download_limit', 'free_download_limit', 'free_ats_limit', 'free_resume_limit')}),
-        ('Integrations', {'fields': ('ai_enabled', 'payments_enabled')}),
+        ('Plan limits', {'fields': ('starter_resume_limit', 'pro_resume_limit', 'starter_ats_limit', 'starter_download_limit')}),
+        ('Integrations', {'fields': ('ai_enabled', 'ai_model', 'ai_base_url', 'payments_enabled', 'integration_status'), 'description': 'Keys are configured securely on the server. Enable checkout only after adding Razorpay keys and the signed webhook.'}),
     )
 
     def has_add_permission(self, request):
@@ -26,7 +42,7 @@ class TutorialVideoAdmin(admin.ModelAdmin):
     list_display = ('title', 'section', 'position', 'is_active')
     list_editable = ('position', 'is_active')
     list_filter = ('section', 'is_active')
-    search_fields = ('title', 'description')
+    search_fields = ('title', 'description', 'written_content')
 
 
 @admin.register(WorkspaceDocument)
@@ -118,3 +134,8 @@ class TransactionAdmin(admin.ModelAdmin):
     @admin.display(description='User Email')
     def get_user_email(self, obj):
         return obj.user.email if obj.user else 'Anonymous'
+
+
+# Retain legacy records in the database; these promotions no longer grant access.
+admin.site.unregister(Offer)
+admin.site.unregister(PromoCode)

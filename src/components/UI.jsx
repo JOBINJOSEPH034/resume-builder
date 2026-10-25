@@ -37,13 +37,14 @@ export function ChipInput({ chips = [], onChange, placeholder = 'Type and press 
 }
 
 // ── Toast Container ──────────────────────────────────────────────
-export function ToastContainer({ toasts }) {
+export function ToastContainer({ toasts, onDismiss }) {
   return (
     <div className="toast-container" role="region" aria-live="polite" aria-label="Notifications">
       {toasts.map(t => (
-        <div key={t.id} className={`toast ${t.type}`} role="status">
+        <div key={t.id} className={`toast ${t.type}`} role={t.type==='error'?'alert':'status'}>
           {t.type === 'success' ? <CheckCircle2 size={15} strokeWidth={2} /> : t.type === 'error' ? <AlertCircle size={15} strokeWidth={2} /> : <Info size={15} strokeWidth={2} />}
-          {t.message}
+          <div><strong>{t.type==='success'?'Done':t.type==='error'?'Something needs attention':'A quick note'}</strong><span>{t.message}</span></div>
+          {onDismiss&&<button onClick={()=>onDismiss(t.id)} aria-label="Dismiss notification"><X size={16}/></button>}
         </div>
       ))}
     </div>

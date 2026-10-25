@@ -1,36 +1,17 @@
 import { useState } from 'react';
 import { useAuth } from '../AuthContext.jsx';
-import { Crown, Download, Tag, LogOut, X, User, ChevronRight, Star, BarChart2 } from 'lucide-react';
+import { Crown, Download, LogOut, X, User, ChevronRight, Star, BarChart2 } from 'lucide-react';
 
 export default function ProfileModal({ onClose, showToast, onPlans }) {
-  const { user, applyPromoCode, logout, upgradeToPro, deleteAccount } = useAuth();
-  const [promoCode, setPromoCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const { user, logout, deleteAccount } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const isPro = user?.plan === 'pro';
-  const isStarter = user?.plan === 'starter';
+  const isBasic = user?.plan === 'starter';
   const downloadsUsed = user?.downloads_used || 0;
   const downloadLimit = user?.download_limit ?? 5;
   const downloadPct = Math.min((downloadsUsed / (downloadLimit || 5)) * 100, 100);
-
-  const handleApplyPromo = async (e) => {
-    e.preventDefault();
-    if (!promoCode.trim()) return;
-    setError('');
-    setLoading(true);
-    try {
-      const result = await applyPromoCode(promoCode.trim());
-      showToast(result.message || 'Promo code applied!', 'success');
-      setPromoCode('');
-    } catch (err) {
-      setError(err.message || 'Invalid or expired promo code');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -103,9 +84,9 @@ export default function ProfileModal({ onClose, showToast, onPlans }) {
               <div style={{ fontSize: '.68rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>Current Plan</div>
               <div style={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-.03em', fontFamily: 'Outfit, sans-serif', display: 'flex', alignItems: 'center', gap: 7 }}>
                 {isPro ? (
-                  <><Star size={16} fill="var(--yellow)" color="var(--yellow)" /> <span style={{ color: 'var(--yellow)' }}>Pro Member (₹499)</span></>
-                ) : isStarter ? (
-                  <><User size={15} color="var(--accent)" /> <span style={{ color: 'var(--ink)' }}>Starter Plan (₹199)</span></>
+                  <><Star size={16} fill="var(--yellow)" color="var(--yellow)" /> <span style={{ color: 'var(--yellow)' }}>Pro Member</span></>
+                ) : isBasic ? (
+                  <><User size={15} color="var(--accent)" /> <span style={{ color: 'var(--ink)' }}>Basic Plan</span></>
                 ) : (
                   <><User size={15} color="var(--muted)" /> <span style={{ color: 'var(--ink)' }}>No Active Plan</span></>
                 )}
@@ -119,7 +100,7 @@ export default function ProfileModal({ onClose, showToast, onPlans }) {
                   onPlans?.();
                 }}
               >
-                <ChevronRight size={13} /> {isStarter ? 'Upgrade to Pro' : 'View Plans'}
+                <ChevronRight size={13} /> {isBasic ? 'Upgrade to Pro' : 'View Plans'}
               </button>
             )}
           </div>
@@ -171,32 +152,6 @@ export default function ProfileModal({ onClose, showToast, onPlans }) {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Promo Code */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 10 }}>
-            <Tag size={14} strokeWidth={2} color="var(--accent)" />
-            <div style={{ fontSize: '.88rem', fontWeight: 700, color: 'var(--ink)' }}>Promo Code</div>
-          </div>
-          <form onSubmit={handleApplyPromo} style={{ display: 'flex', gap: 8 }}>
-            <input
-              type="text"
-              className="f-input"
-              placeholder="Enter your code..."
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-              style={{ flex: 1, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}
-            />
-            <button className="btn btn-primary" type="submit" disabled={loading || !promoCode.trim()} style={{ gap: 5, whiteSpace: 'nowrap' }}>
-              {loading ? '...' : 'Apply'}
-            </button>
-          </form>
-          {error && (
-            <div style={{ fontSize: '.78rem', color: 'var(--red)', marginTop: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-              ⚠ {error}
-            </div>
-          )}
         </div>
 
         {/* Danger Zone — Delete Account */}

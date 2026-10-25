@@ -12,7 +12,6 @@ import logging
 import os
 from .models import Transaction, Offer, UserProfile, PromoCode
 from .workspace import config, download_limit
-from openai import OpenAI
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -126,8 +125,8 @@ def me(request):
     profile = getattr(user, 'profile', None)
     plan = profile.plan if profile else 'free'
     cfg = config()
-    dl_limit = None if plan == 'pro' else (cfg.starter_download_limit if plan == 'starter' else download_limit())
-    ats_limit = None if plan == 'pro' else (cfg.starter_ats_limit if plan == 'starter' else cfg.free_ats_limit)
+    dl_limit = None if plan == 'pro' else (cfg.starter_download_limit if plan == 'starter' else 0)
+    ats_limit = None if plan == 'pro' else (cfg.starter_ats_limit if plan == 'starter' else 0)
     return Response({
         'id': user.id,
         'email': user.email,
@@ -166,6 +165,8 @@ def track_download(request):
         })
 
     cfg = config()
+    if profile.plan not in ('starter', 'pro'):
+        return Response({'allowed': False, 'error': 'Choose Basic or Pro to download your resume.'}, status=402)
     user_limit = cfg.starter_download_limit if profile.plan == 'starter' else download_limit()
 
     # Enforce limit for non-pro
@@ -236,7 +237,8 @@ def upgrade_plan(request):
             return Response({'error': 'Payment not completed.'}, status=status.HTTP_402_PAYMENT_REQUIRED)
             
         if hasattr(user, 'profile'):
-            user.profile.plan = 'pro'
+            if user.profile.plan != 'pro':
+                user.profile.plan = txn.plan
             user.profile.save()
             return Response({
                 'message': 'Successfully upgraded to Pro',
@@ -244,7 +246,7 @@ def upgrade_plan(request):
                     'id': user.id,
                     'email': user.email,
                     'name': f"{user.first_name} {user.last_name}".strip() or user.email,
-                    'plan': 'pro',
+                    'plan': user.profile.plan,
                     'downloads_used': user.profile.downloads_used,
                 }
             })
@@ -260,29 +262,13 @@ def upgrade_plan(request):
 
 @api_view(['GET'])
 def get_active_offer(request):
-    """Returns the currently active offer, or null if none."""
-    try:
-        offer = Offer.objects.get(is_active=True)
-        return Response({
-            'is_active': True,
-            'title': offer.title,
-            'description': offer.description,
-            'discount_text': offer.discount_text,
-            'free_downloads_allowed': offer.free_downloads_allowed,
-            'ai_optimize_free': offer.ai_optimize_free,
-        })
-    except Offer.DoesNotExist:
-        return Response({'is_active': False})
+    return Response({'is_active': False})
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# AI OPTIMIZE & PARSE
-# ──────────────────────────────────────────────────────────────────────────────
 
 llm_api_key = os.getenv("LLM_API_KEY", "")
 # Default to Groq Llama 3 endpoint if not provided
 llm_base_url = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1")
-llm_model = os.getenv("LLM_MODEL", "llama3-8b-8192")
+llm_model = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
 
 
 @ratelimit(key='user_or_ip', rate='10/m', block=True)
@@ -297,6 +283,9 @@ def optimize_resume(request):
         return Response({'error': 'AI assistance is disabled by the administrator.'}, status=403)
     if not (hasattr(request.user, 'profile') and request.user.profile.plan == 'pro'):
         return Response({'error': 'AI Resume Optimization is exclusively available on the ₹499 Pro plan.'}, status=status.HTTP_403_FORBIDDEN)
+    from .ai import client_config
+    connection = client_config()
+    llm_api_key, llm_base_url, llm_model = connection['api_key'], connection['base_url'], connection['model']
     try:
         data = request.data
         resume_data = data.get('resumeData', {})
@@ -305,9 +294,10 @@ def optimize_resume(request):
         if not llm_api_key and not llm_base_url.startswith("http://localhost"):
             return Response({'error': 'LLM API not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        from openai import OpenAI
         client = OpenAI(
             api_key=llm_api_key or "local",
-            base_url=llm_base_url
+            base_url=llm_base_url, timeout=45, max_retries=1
         )
 
         prompt = f"""
@@ -347,6 +337,9 @@ def parse_resume(request):
         return Response({'error': 'AI assistance is disabled by the administrator.'}, status=403)
     if not (hasattr(request.user, 'profile') and request.user.profile.plan == 'pro'):
         return Response({'error': 'AI Resume Parsing is exclusively available on the ₹499 Pro plan.'}, status=status.HTTP_403_FORBIDDEN)
+    from .ai import client_config
+    connection = client_config()
+    llm_api_key, llm_base_url, llm_model = connection['api_key'], connection['base_url'], connection['model']
     try:
         data = request.data
         resume_text = data.get('text', '')
@@ -360,9 +353,10 @@ def parse_resume(request):
         if not llm_api_key and not llm_base_url.startswith("http://localhost"):
             return Response({'error': 'LLM API not configured on server.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+        from openai import OpenAI
         client = OpenAI(
             api_key=llm_api_key or "local",
-            base_url=llm_base_url
+            base_url=llm_base_url, timeout=45, max_retries=1
         )
 
         prompt = f"""
@@ -427,48 +421,7 @@ def parse_resume(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def apply_promo_code(request):
-    """Apply a promo code for 100% off (direct Pro upgrade) or valid discount."""
-    code = request.data.get('code', '').strip().upper()
-    if not code:
-        return Response({'error': 'No promo code provided.'}, status=400)
-
-    try:
-        promo = PromoCode.objects.get(code=code)
-    except PromoCode.DoesNotExist:
-        return Response({'error': 'Invalid promo code.'}, status=400)
-
-    if not promo.is_valid():
-        return Response({'error': 'This promo code is inactive or has reached its usage limit.'}, status=400)
-
-    user = request.user
-
-    # If it's a 100% free promo code, upgrade them instantly
-    if promo.discount_percentage == 100:
-        if hasattr(user, 'profile'):
-            user.profile.plan = 'pro'
-            user.profile.save()
-            promo.times_used += 1
-            promo.save()
-            return Response({
-                'message': 'Promo code applied! You have been upgraded to Pro for free.',
-                'user': {
-                    'id': user.id,
-                    'email': user.email,
-                    'name': f"{user.first_name} {user.last_name}".strip(),
-                    'plan': 'pro',
-                    'downloads_used': user.profile.downloads_used,
-                }
-            })
-    
-    # If it's a discount percentage
-    return Response({
-        'message': 'Promo code applied successfully!',
-        'discount_percentage': promo.discount_percentage
-    })
-
-# run_setup endpoint has been removed for security.
-# Use: python manage.py migrate && python manage.py createsuperuser
-# or set DJANGO_SUPERUSER_* env vars with manage.py createsuperuser --no-input
+    return Response({'error': 'Discount codes are not enabled. Choose Basic or Pro.'}, status=400)
 
 
 @api_view(['POST', 'GET'])
@@ -528,6 +481,8 @@ def track_ats(request):
         return Response({'error': 'Profile not found.'}, status=status.HTTP_400_BAD_REQUEST)
 
     cfg = config()
+    if profile.plan not in ('starter', 'pro'):
+        return Response({'allowed': False, 'error': 'Choose a paid plan to access ATS reports.'}, status=402)
     user_limit = cfg.starter_ats_limit if profile.plan == 'starter' else cfg.free_ats_limit
 
     if profile.plan == 'pro':

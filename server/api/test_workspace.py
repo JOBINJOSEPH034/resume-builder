@@ -15,9 +15,76 @@ def resume_data():
 
 
 class WorkspaceTests(TestCase):
+    def test_admin_service_switches(self):
+        WorkspaceSettings.objects.create(resume_enabled=False, cover_enabled=False, learning_enabled=False)
+        self.assertEqual(self.client.post('/api/resumes/', {'title': 'Test', 'template': 'classic', 'content_json': resume_data()}, format='json').status_code, 403)
+        self.alice.profile.plan = 'pro'
+        self.alice.profile.save()
+        self.assertEqual(self.client.post('/api/documents/', {'title': 'Letter', 'kind': 'cover', 'content': {'letter': 'Hello'}}, format='json').status_code, 403)
+        self.assertEqual(self.client.get('/api/tutorials/').data, [])
+
+    def test_admin_branding_preserves_default_login(self):
+        response = self.client.get('/admin/login/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'admin/ready-candidate.css')
+        self.assertContains(response, 'Ready Candidate')
+
+    def test_real_razorpay_signature_verification(self):
+        import razorpay
+        client = razorpay.Client(auth=('test-key', 'test-secret'))
+        row = Transaction.objects.create(user=self.alice, plan='starter', amount=199, razorpay_order_id='order_signed')
+        signature = hmac.new(b'test-secret', b'order_signed|pay_signed', hashlib.sha256).hexdigest()
+        payload = {'razorpay_order_id': row.razorpay_order_id, 'razorpay_payment_id': 'pay_signed', 'razorpay_signature': signature}
+        with patch('api.workspace.payment_client', return_value=client), patch.object(client.payment, 'fetch', return_value={'status': 'captured', 'order_id': row.razorpay_order_id, 'amount': 19900, 'currency': 'INR'}):
+            self.assertEqual(self.client.post('/api/payments/verify/', payload, format='json').status_code, 200)
+            payload['razorpay_signature'] = 'tampered'
+            self.assertEqual(self.client.post('/api/payments/verify/', payload, format='json').status_code, 400)
+
+    def test_preview_account_requires_purchase(self):
+        self.alice.profile.plan = 'free'
+        self.alice.profile.save()
+        self.assertEqual(self.client.post('/api/resumes/', {'title': 'Test', 'template': 'classic', 'content_json': resume_data()}, format='json').status_code, 402)
+        self.assertEqual(self.client.post('/api/track-download/').status_code, 402)
+        self.assertEqual(self.client.post('/api/track-ats/').status_code, 402)
+        self.assertEqual(self.client.post('/api/documents/', {'title': 'Letter', 'kind': 'cover', 'content': {'letter': 'Hello'}}, format='json').status_code, 403)
+
+    def test_all_fifty_templates_available_to_basic(self):
+        from .workspace import TEMPLATES, ResumeSerializer
+        self.assertEqual(len(set(TEMPLATES)), 50)
+        for template in TEMPLATES:
+            serializer = ResumeSerializer(data={'title': 'Example', 'template': template, 'content_json': resume_data()})
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_written_materials_publish_and_unpublish(self):
+        lesson = TutorialVideo(title='Written guide', section='resume', written_content='Write specific achievements.', material_url='https://example.com/guide.pdf')
+        lesson.full_clean()
+        lesson.save()
+        response = self.client.get('/api/tutorials/')
+        self.assertEqual(response.data[0]['written_content'], 'Write specific achievements.')
+        lesson.is_active = False
+        lesson.save()
+        self.assertEqual(self.client.get('/api/tutorials/').data, [])
+
+    @patch('api.workspace.payment_client')
+    def test_basic_payment_survives_price_changes_and_cannot_downgrade_pro(self, client):
+        WorkspaceSettings.objects.create(starter_price=299, pro_price=599)
+        row = Transaction.objects.create(user=self.alice, plan='starter', amount=199, razorpay_order_id='order_basic')
+        client.return_value.payment.fetch.return_value = {'status': 'captured', 'order_id': row.razorpay_order_id, 'amount': 19900, 'currency': 'INR'}
+        payload = {'razorpay_order_id': row.razorpay_order_id, 'razorpay_payment_id': 'pay_basic', 'razorpay_signature': 'signature'}
+        self.assertEqual(self.client.post('/api/payments/verify/', payload, format='json').status_code, 200)
+        self.alice.profile.refresh_from_db()
+        self.assertEqual(self.alice.profile.plan, 'starter')
+        self.alice.profile.plan = 'pro'
+        self.alice.profile.save()
+        self.assertEqual(self.client.post('/api/payments/verify/', payload, format='json').status_code, 200)
+        self.alice.profile.refresh_from_db()
+        self.assertEqual(self.alice.profile.plan, 'pro')
+
     def setUp(self):
         self.alice = User.objects.create_user('alice', email='alice@example.com', password='test-password-1')
         self.bob = User.objects.create_user('bob', email='bob@example.com', password='test-password-2')
+        self.alice.profile.plan = 'starter'
+        self.alice.profile.save()
         self.client = APIClient()
         self.client.force_authenticate(self.alice)
 
@@ -35,7 +102,7 @@ class WorkspaceTests(TestCase):
 
     def test_invalid_resume_and_limits(self):
         self.assertEqual(self.client.post('/api/resumes/', {'title': 'Bad', 'template': 'unknown', 'content_json': []}, format='json').status_code, 400)
-        WorkspaceSettings.objects.create(free_resume_limit=0)
+        WorkspaceSettings.objects.create(starter_resume_limit=0)
         self.assertEqual(self.client.post('/api/resumes/', {'title': 'Test', 'template': 'classic', 'content_json': resume_data()}, format='json').status_code, 403)
 
     def test_private_documents_and_authentication(self):
@@ -61,15 +128,15 @@ class WorkspaceTests(TestCase):
         self.assertIn('Untrusted', str(response.data['detail']))
 
     def test_admin_quotas_are_enforced(self):
-        WorkspaceSettings.objects.create(free_download_limit=0, free_ats_limit=0)
+        WorkspaceSettings.objects.create(starter_download_limit=0, starter_ats_limit=0)
         self.assertEqual(self.client.post('/api/track-download/').status_code, 402)
         self.assertEqual(self.client.post('/api/track-ats/').status_code, 402)
 
-    def test_active_offer_controls_the_download_limit(self):
-        WorkspaceSettings.objects.create(free_download_limit=0)
+    def test_old_free_offer_cannot_bypass_paid_limits(self):
+        WorkspaceSettings.objects.create(starter_download_limit=0)
         Offer.objects.create(is_active=True, free_downloads_allowed=7)
-        self.assertEqual(self.client.get('/api/workspace/config/').data['free_download_limit'], 7)
-        self.assertEqual(self.client.post('/api/track-download/').data['download_limit'], 7)
+        self.assertEqual(self.client.get('/api/workspace/config/').data['starter_download_limit'], 0)
+        self.assertEqual(self.client.post('/api/track-download/').status_code, 402)
 
     def test_tutorial_validation_and_publication(self):
         bad = TutorialVideo(title='Bad', section='resume', youtube_url='https://example.com/video')
@@ -80,10 +147,10 @@ class WorkspaceTests(TestCase):
         self.assertEqual([row['title'] for row in self.client.get('/api/tutorials/').data], ['Live'])
 
     def test_config_does_not_expose_payment_credentials(self):
-        WorkspaceSettings.objects.create(payments_enabled=True, free_resume_limit=7)
+        WorkspaceSettings.objects.create(payments_enabled=True, starter_resume_limit=7)
         with patch.dict('os.environ', {'RAZORPAY_KEY_ID': 'private-id', 'RAZORPAY_KEY_SECRET': 'secret'}):
             response = self.client.get('/api/workspace/config/')
-        self.assertEqual(response.data['free_resume_limit'], 7)
+        self.assertEqual(response.data['starter_resume_limit'], 7)
         self.assertNotIn('secret', json.dumps(response.data))
         self.assertTrue(response.data['payments_enabled'])
 
@@ -108,7 +175,7 @@ class WorkspaceTests(TestCase):
         client.return_value.payment.fetch.return_value = {'status': 'captured', 'order_id': row.razorpay_order_id, 'amount': 1, 'currency': 'INR'}
         self.assertEqual(self.client.post('/api/payments/verify/', payload, format='json').status_code, 409)
         self.alice.profile.refresh_from_db()
-        self.assertEqual(self.alice.profile.plan, 'free')
+        self.assertEqual(self.alice.profile.plan, 'starter')
         self.client.force_authenticate(self.bob)
         self.assertEqual(self.client.post('/api/payments/verify/', payload, format='json').status_code, 404)
         self.client.force_authenticate(self.alice)
@@ -132,7 +199,9 @@ class WorkspaceTests(TestCase):
     @patch('api.workspace.payment_client')
     def test_starter_plan_and_feature_gating(self, client):
         WorkspaceSettings.objects.create(payments_enabled=True, starter_price=199, pro_price=499, starter_resume_limit=5)
-        # Test starter order creation
+        self.alice.profile.plan = 'free'
+        self.alice.profile.save()
+        # Test Basic order creation
         client.return_value.order.create.return_value = {'id': 'order_starter'}
         with patch.dict('os.environ', {'RAZORPAY_KEY_ID': 'key', 'RAZORPAY_KEY_SECRET': 'secret'}):
             response = self.client.post('/api/payments/orders/', {'plan': 'starter'}, format='json')
@@ -148,7 +217,7 @@ class WorkspaceTests(TestCase):
 
         # Test Cover letter document allowed for starter plan
         cover_doc = self.client.post('/api/documents/', {'title': 'Letter', 'kind': 'cover', 'content': {'letter': 'Hello'}}, format='json')
-        self.assertEqual(cover_doc.status_code, 201)
+        self.assertEqual(cover_doc.status_code, 403)
 
         # Test AI optimize restriction for starter plan
         opt_res = self.client.post('/api/optimize/', {'resumeData': resume_data(), 'jobDesc': 'Software Engineer'}, format='json')
